@@ -15,7 +15,7 @@ import { ADVENTURE_DATA } from './data/adventure.js';
 import { SearchEngine } from './utils/search-engine.js';
 import { soundFX } from './utils/sound-fx.js';
 import { AtmosphericCanvas } from './components/particle-canvas.js?v=mobile_v5';
-import { RotaryWheel } from './components/rotary-wheel.js?v=mobile_optimized_v1';
+import { RotaryWheel } from './components/rotary-wheel.js?v=mobile_optimized_v2';
 
 import { EmotionWheel } from './components/emotion-wheel.js?v=perf_v2';
 import { FusionMatrix } from './components/fusion-matrix.js?v=mobile_v5';
@@ -275,7 +275,7 @@ class App {
   // ============================================================
   renderHome(container) {
     container.innerHTML = `
-      <div class="w-full min-h-[calc(100vh-60px)] flex items-center justify-center py-10 sm:py-16 px-3 sm:px-8 relative z-10">
+      <div class="w-full lg:min-h-[calc(100vh-60px)] flex items-start lg:items-center justify-center py-6 sm:py-16 px-2 sm:px-8 relative z-10 overflow-hidden">
         
         <!-- COMPOSIÇÃO TRIPARTITE EQUILIBRADA (CENTRALIZADA VERTICALMENTE NO VIEWPORT) -->
         <div class="max-w-[1460px] w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -461,7 +461,7 @@ class App {
 
               <!-- Símbolo Oficial Livre de Paroxismo BEM Maior (540px) sem Bola Preta -->
               <div class="colossal-sigil-core sigil-breathing-aura flex items-center justify-center" onclick="window.ParoxismoApp.triggerOmen()" title="Comungar com o Sigilo de Paroxismo">
-                <img src="assets/images/paroxismo_logo_transparent.png" alt="Sigilo Oficial de Paroxismo" class="w-full h-full object-contain filter drop-shadow-[0_0_35px_rgba(226,27,35,0.95)] drop-shadow-[0_0_70px_rgba(226,27,35,0.5)] contrast-125 brightness-110" />
+                <img src="assets/images/paroxismo_logo_transparent.png" alt="Sigilo Oficial de Paroxismo" class="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(226,27,35,0.85)] lg:drop-shadow-[0_0_35px_rgba(226,27,35,0.95)] contrast-125 brightness-110" />
               </div>
 
             </div>

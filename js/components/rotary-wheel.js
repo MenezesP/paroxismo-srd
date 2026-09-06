@@ -182,6 +182,10 @@ export class RotaryWheel {
     let isDragging = false;
 
     const startDrag = (clientX, clientY) => {
+      // Se no celular a roda estiver recolhida, JAMAIS inicia o arraste da roda
+      if (window.innerWidth < 1024 && this.isCollapsed) {
+        return;
+      }
       startX = clientX;
       startY = clientY;
       isDragging = true;
