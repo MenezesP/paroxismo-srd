@@ -282,16 +282,25 @@ h1, h2, h3, h4, h5, .font-serif {
 
 /* Regras Responsivas para Celular e Tablet (< 1024px) */
 @media (max-width: 1023px) {
-  html, body {
+  html {
     overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    min-height: 100vh;
     position: relative;
     width: 100%;
-    max-width: 100vw;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   .nadir-game-viewport {
-    overflow-x: hidden !important;
-    max-width: 100vw !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 4px 2px !important;
     padding: 12px 8px !important;
     box-shadow: none !important;
@@ -299,21 +308,23 @@ h1, h2, h3, h4, h5, .font-serif {
   }
 
   #main-content {
-    overflow-x: hidden !important;
+    overflow: visible !important;
     width: 100% !important;
     max-width: 100% !important;
   }
 
   .rotary-wheel-system {
     left: 0;
+    z-index: 60;
   }
 
   .rotary-wheel-system.collapsed {
-    transform: translateY(-50%) translateX(-140%) !important;
+    transform: translateY(-50%) translateX(-120%) !important;
     pointer-events: none !important;
+    visibility: hidden !important;
   }
 
-  /* Quando recolhido no celular, NENHUM elemento da roda (exceto o botão de abrir) recebe evento de ponteiro */
+  /* Quando recolhido no celular, NENHUM elemento da roda recebe evento de ponteiro */
   .rotary-wheel-system.collapsed * {
     pointer-events: none !important;
   }
@@ -326,15 +337,11 @@ h1, h2, h3, h4, h5, .font-serif {
     display: none !important;
   }
 
-  .rotary-wheel-system.collapsed .rotary-drawer-toggle-btn,
-  .rotary-wheel-system.collapsed .rotary-drawer-toggle-btn * {
-    pointer-events: auto !important;
-    display: flex !important;
-  }
-
   .rotary-wheel-system:not(.collapsed) {
-    transform: translateY(-50%) translateX(10px);
-    pointer-events: auto;
+    transform: translateY(-50%) translateX(10px) !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    z-index: 60 !important;
   }
 
   .rotary-wheel-system:not(.collapsed) .rotary-nodes-track,
@@ -346,27 +353,17 @@ h1, h2, h3, h4, h5, .font-serif {
     transition: opacity 0.3s ease;
   }
 
-  .rotary-wheel-system:not(.collapsed) .rotary-drawer-arrow {
-    transform: rotate(180deg);
-    color: var(--blood-crimson);
-  }
-
-  /* O botão SÓ APARECE NO CELULAR e no topo, sem cobrir nenhum nó de texto */
+  /* Botão Flutuante de Menu no Celular (Topo Esquerdo) */
   .rotary-drawer-toggle-btn {
     display: flex !important;
-    position: absolute;
-    top: 24px;
-    right: -92px;
     align-items: center;
     gap: 6px;
     background: #06080d;
     border: 1.5px solid var(--blood-crimson);
-    border-left: none;
-    padding: 8px 12px 8px 10px;
-    border-radius: 0 4px 4px 0;
+    padding: 6px 12px;
+    border-radius: 2px;
     cursor: pointer;
-    z-index: 55;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.9), 0 0 16px rgba(226, 27, 35, 0.4);
+    box-shadow: 0 0 15px rgba(226, 27, 35, 0.4);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
     white-space: nowrap;
@@ -375,12 +372,7 @@ h1, h2, h3, h4, h5, .font-serif {
   .rotary-drawer-toggle-btn:hover {
     background: #140507;
     border-color: #ff333d;
-    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.95), 0 0 22px rgba(226, 27, 35, 0.7);
-  }
-
-  .rotary-wheel-system:not(.collapsed) .rotary-drawer-toggle-btn {
-    right: -80px;
-    top: 18px;
+    box-shadow: 0 0 20px rgba(226, 27, 35, 0.7);
   }
 
   /* ============================================================ */

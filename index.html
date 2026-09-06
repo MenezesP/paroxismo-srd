@@ -29,10 +29,10 @@
     }
   </script>
 
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_v6" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_v7" />
   <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
 </head>
-<body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative overflow-x-hidden">
+<body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative">
 
   <!-- ============================================================ -->
   <!-- CENOGRAFIA ATMOSFÉRICA DE FUNDO (Z-0, Z-1, Z-2) -->
@@ -61,17 +61,21 @@
   <div id="rotary-backdrop" class="rotary-backdrop" aria-hidden="true"></div>
 
   <!-- ============================================================ -->
+  <!-- BOTÃO FLUTUANTE DE MENU NO CELULAR (SUPERIOR ESQUERDO)       -->
+  <!-- ============================================================ -->
+  <div class="fixed top-3 left-3 sm:top-4 sm:left-6 z-50 lg:hidden print:hidden">
+    <button id="rotary-drawer-toggle-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/95 hover:bg-[#121622] text-[#cbd0dc] hover:text-[#e21b23] border border-[#e21b23]/70 backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_0_15px_rgba(226,27,35,0.4)] cursor-pointer" title="Recolher / Expandir Menu de Rodas" aria-label="Menu de Navegação">
+      <span class="text-[#e21b23] font-black" id="rotary-drawer-badge">00</span>
+      <span class="font-serif font-bold text-white tracking-widest text-[10px]" id="rotary-drawer-label">MENU</span>
+      <span class="text-[#8e95a5]" id="rotary-drawer-arrow">❯</span>
+    </button>
+  </div>
+
+  <!-- ============================================================ -->
   <!-- RODA DE OPÇÕES ROTATIVA GLOBAL (DIRETO NO BODY - 100% VIEWPORT ANCHORED) -->
   <!-- ============================================================ -->
   <aside id="rotary-nav" class="rotary-wheel-system" title="Role o scroll do mouse ou arraste para girar a roda de opções">
     
-    <!-- Botão de Puxar / Esconder a Roda de Opções (Exclusivo Celular/Tablet) -->
-    <button id="rotary-drawer-toggle-btn" class="rotary-drawer-toggle-btn lg:hidden" title="Recolher / Expandir Menu de Rodas" aria-label="Menu de Navegação">
-      <span class="rotary-drawer-badge" id="rotary-drawer-badge">00</span>
-      <span class="rotary-drawer-label" id="rotary-drawer-label">MENU</span>
-      <span class="rotary-drawer-arrow" id="rotary-drawer-arrow">❯</span>
-    </button>
-
     <!-- Controles de Giro Manual -->
     <button id="rotary-prev-btn" class="rotary-ctrl-btn up" title="Girar Roda para Cima (Scroll / Seta Cima)">▲</button>
     <button id="rotary-next-btn" class="rotary-ctrl-btn down" title="Girar Roda para Baixo (Scroll / Seta Baixo)">▼</button>
