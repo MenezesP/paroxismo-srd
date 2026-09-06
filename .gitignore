@@ -1,0 +1,21 @@
+# Dependências
+node_modules/
+
+# Logs e caches locais
+.npm/
+.yarn/
+*.log
+
+# Deploy e plataformas
+.vercel
+.netlify
+
+# Testes e Playwright
+.playwright-mcp/
+test-results/
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp

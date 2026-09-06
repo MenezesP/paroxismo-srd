@@ -1,0 +1,65 @@
+/**
+ * PAROXISMO - SRD COMPENDIUM
+ * Folha de Estilos de Componentes Específicos
+ */
+
+/* Navegação Superior & Abas */
+.nav-link {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.nav-link.active {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d4af37;
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
+  border-radius: 2px;
+}
+
+/* Statblock de Monstros (Estilo SRD / Bestiário) */
+.statblock-card {
+  background: #111319;
+  border-left: 4px solid var(--accent-border, #d4af37);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.statblock-divider {
+  height: 2px;
+  background: linear-gradient(90deg, #d4af37, #b91c1c, transparent);
+  margin: 12px 0;
+}
+
+/* Animações de Entrada */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content-active {
+  animation: fadeIn 0.25s ease forwards;
+}
+
+/* Linha com clamp para textos longos */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -1,0 +1,516 @@
+/**
+ * PAROXISMO - SRD COMPENDIUM
+ * Módulo: Motor de Dados 3D Real com Física WebGL (Three.js + Cannon.js)
+ * Arquitetura idêntica à do Foundry VTT (Dice So Nice / byWulf ThreeJS Dice).
+ * 
+ * - Renderizador Three.js transparente com iluminação direcional e sombras dinâmicas.
+ * - Simulação de corpos rígidos poliedrais convexos no Cannon.js.
+ * - Suporte completo a d20, d12, d10, d8, d6 e d4.
+ * - Texturas em pedra obsidiana e carmesim litúrgico com numeração de alto contraste.
+ * - Resolução da Promise EXCLUSIVAMENTE após repouso físico do dado.
+ */
+
+import { soundFX } from './sound-fx.js?v=sound_v2';
+import { 
+  DiceManager, 
+  DiceD20, 
+  DiceD12, 
+  DiceD10, 
+  DiceD8, 
+  DiceD6, 
+  DiceD4 
+} from '../vendor/three-dice.js?v=phys_v12';
+
+export class DiceAnimator {
+  static initialized = false;
+  static canvas = null;
+  static renderer = null;
+  static scene = null;
+  static camera = null;
+  static world = null;
+  static activeDice = [];
+  static isLoopRunning = false;
+  static animFrameId = null;
+
+  /**
+   * Inicializa o palco WebGL e o mundo físico Cannon de forma lazy
+   */
+  static initEngine() {
+    if (this.initialized) return;
+
+    const THREE = window.THREE;
+    const CANNON = window.CANNON;
+
+    if (!THREE || !CANNON) {
+      console.warn("Three.js ou Cannon.js não encontrados no escopo global.");
+      return;
+    }
+
+    // 1. Canvas WebGL de tela cheia translúcido
+    this.canvas = document.getElementById('paroxismo-3d-dice-canvas');
+    if (!this.canvas) {
+      this.canvas = document.createElement('canvas');
+      this.canvas.id = 'paroxismo-3d-dice-canvas';
+      this.canvas.className = 'fixed inset-0 pointer-events-none z-[9990] select-none w-full h-full';
+      document.body.appendChild(this.canvas);
+    }
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // 2. Renderizador Three.js
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: "high-performance",
+      preserveDrawingBuffer: true
+    });
+    this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // 3. Cena e Câmera de Perspectiva Superior (Mesa de RPG)
+    this.scene = new THREE.Scene();
+
+    const fov = 42;
+    this.camera = new THREE.PerspectiveCamera(fov, width / height, 1, 2500);
+    this.camera.position.set(0, 220, 160);
+    this.camera.lookAt(0, 10, 0);
+    this.scene.add(this.camera);
+
+    // 4. Iluminação Cinematográfica de Mesa
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    this.scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.position.set(120, 600, 250);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 50;
+    dirLight.shadow.camera.far = 1000;
+    const d = 350;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.bias = -0.001;
+    this.scene.add(dirLight);
+
+    // Luz de Destaque Mística Vermelha do Paroxismo
+    const accentLight = new THREE.PointLight(0xe21b23, 1.2, 800);
+    accentLight.position.set(-150, 220, 0);
+    this.scene.add(accentLight);
+
+    // 5. Plano Invisível Coletor de Sombras (Shadow Catcher)
+    const floorGeo = new THREE.PlaneGeometry(3000, 3000);
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.55 });
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.y = 0;
+    floorMesh.receiveShadow = true;
+    this.scene.add(floorMesh);
+
+    // 6. Mundo de Física Rígida Cannon.js
+    this.world = new CANNON.World();
+    this.world.gravity.set(0, -9.82 * 110, 0);
+    this.world.broadphase = new CANNON.NaiveBroadphase();
+    this.world.solver.iterations = 18;
+
+    DiceManager.setWorld(this.world);
+
+    // Chão de Colisão Física
+    const floorBody = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Plane(),
+      material: DiceManager.floorBodyMaterial
+    });
+    floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    floorBody.position.set(0, 0, 0);
+    this.world.addBody(floorBody);
+
+    // Paredes Invisíveis de Contenção (para o dado não sair da tela)
+    this.buildBoundaryWalls();
+
+    // Redimensionamento de Janela
+    window.addEventListener('resize', () => this.handleResize());
+
+    this.initialized = true;
+  }
+
+  /**
+   * Constrói barreiras perimetrais na física para rebater os dados
+   */
+  static buildBoundaryWalls() {
+    const CANNON = window.CANNON;
+    const boundX = 140;
+    const boundZ = 95;
+
+    // Parede Esquerda
+    const wallL = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
+    wallL.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
+    wallL.position.set(-boundX, 0, 0);
+    this.world.addBody(wallL);
+
+    // Parede Direita
+    const wallR = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
+    wallR.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
+    wallR.position.set(boundX, 0, 0);
+    this.world.addBody(wallR);
+
+    // Parede Superior (Fundo)
+    const wallTop = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
+    wallTop.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), 0);
+    wallTop.position.set(0, 0, -boundZ);
+    this.world.addBody(wallTop);
+
+    // Parede Inferior (Frente)
+    const wallBottom = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
+    wallBottom.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI);
+    wallBottom.position.set(0, 0, boundZ);
+    this.world.addBody(wallBottom);
+  }
+
+  static handleResize() {
+    if (!this.initialized) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  }
+
+  /**
+   * Arremessa um dado 3D na mesa virtual com física newtoniana real e aguarda seu repouso físico
+   */
+  static roll({
+    sides = 20,
+    label = "TESTE"
+  }) {
+    return new Promise((resolve) => {
+      this.initEngine();
+
+      const THREE = window.THREE;
+      const CANNON = window.CANNON;
+
+      if (!THREE || !CANNON || !this.world) {
+        // Fallback defensivo caso WebGL não esteja disponível
+        const fallbackVal = Math.floor(Math.random() * sides) + 1;
+        resolve({
+          rolledValue: fallbackVal,
+          isCrit: sides === 20 && fallbackVal === 20,
+          isFumble: sides === 20 && fallbackVal === 1,
+          sides,
+          label
+        });
+        return;
+      }
+
+      // Banner flutuante do teste
+      const labelBadge = document.createElement('div');
+      labelBadge.id = 'dice-3d-floating-label';
+      labelBadge.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2 bg-[#07090e]/95 border-2 border-[#e21b23] text-white shadow-[0_0_20px_rgba(226,27,35,0.4)] text-xs font-mono font-black uppercase tracking-widest animate-fadeIn select-none shadow-2xl flex items-center';
+      labelBadge.innerHTML = `<span>[ ${label.toUpperCase()} ]</span>`;
+      document.body.appendChild(labelBadge);
+
+      // Cores Litúrgicas do PAROXISMO (Obsidiana e Carmesim; 20 e 1 já gravados nativamente nas faces)
+      const diceOptions = {
+        size: sides === 20 ? 32 : sides === 6 ? 28 : sides === 8 ? 30 : sides === 12 ? 30 : 28,
+        backColor: '#0b0f19',
+        fontColor: '#ff333d'
+      };
+
+      let dieInstance;
+      const d = parseInt(sides, 10) || 20;
+
+      switch (d) {
+        case 4:
+          dieInstance = new DiceD4(diceOptions);
+          break;
+        case 6:
+          dieInstance = new DiceD6(diceOptions);
+          break;
+        case 8:
+          dieInstance = new DiceD8(diceOptions);
+          break;
+        case 10:
+          dieInstance = new DiceD10(diceOptions);
+          break;
+        case 12:
+          dieInstance = new DiceD12(diceOptions);
+          break;
+        case 20:
+        default:
+          dieInstance = new DiceD20(diceOptions);
+          break;
+      }
+
+      const dieMesh = dieInstance.getObject();
+      this.scene.add(dieMesh);
+
+      // Posição inicial de lançamento (vindo do alto com ângulo e rotação randômica)
+      const spawnSide = Math.random() > 0.5 ? 1 : -1;
+      const startX = spawnSide * (70 + Math.random() * 40);
+      const startY = 130 + Math.random() * 30;
+      const startZ = 30 + Math.random() * 40;
+
+      dieMesh.position.set(startX, startY, startZ);
+      dieMesh.quaternion.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        1
+      ).normalize();
+
+      dieInstance.updateBodyFromMesh();
+
+      // Forças físicas de arremesso (Impulso linear em direção ao centro da mesa + torque angular violento)
+      dieMesh.body.velocity.set(
+        -startX * (1.5 + Math.random() * 0.5),
+        -90 - Math.random() * 30,
+        -startZ * (1.5 + Math.random() * 0.5)
+      );
+
+      dieMesh.body.angularVelocity.set(
+        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
+        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
+        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1)
+      );
+
+      // Som tátil de arremesso inicial
+      soundFX.playDiceRoll();
+
+      // Monitoramento de colisões para disparar som de quique
+      let lastSoundTime = 0;
+      const onCollide = (e) => {
+        const now = performance.now();
+        const contactVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
+        if (contactVelocity > 35 && now - lastSoundTime > 110) {
+          lastSoundTime = now;
+          soundFX.playDiceRoll();
+        }
+      };
+
+      dieMesh.body.addEventListener('collide', onCollide);
+
+      // Estado do Dado Ativo
+      const dieData = {
+        dieInstance,
+        dieMesh,
+        onCollide,
+        stableCount: 0,
+        isFinished: false,
+        startTime: performance.now(),
+        resolveCallback: resolve,
+        labelBadge,
+        sides: d,
+        label
+      };
+
+      this.activeDice.push(dieData);
+
+      // Inicia loop de animação caso não esteja ativo
+      if (!this.isLoopRunning) {
+        this.startLoop();
+      }
+    });
+  }
+
+  static startLoop() {
+    this.isLoopRunning = true;
+    let lastTime = performance.now();
+
+    const animate = (now) => {
+      this.animFrameId = requestAnimationFrame(animate);
+
+      const dt = Math.min((now - lastTime) / 1000, 1 / 30);
+      lastTime = now;
+
+      // Avança física
+      this.world.step(dt || 1 / 60);
+
+      // Atualiza cada dado ativo
+      for (let i = this.activeDice.length - 1; i >= 0; i--) {
+        const d = this.activeDice[i];
+        d.dieInstance.updateMeshFromBody();
+
+        // Checagem de repouso físico real: o dado deve parar TOTALMENTE de se mover e girar
+        if (!d.isFinished) {
+          const v = d.dieMesh.body.velocity;
+          const av = d.dieMesh.body.angularVelocity;
+          const speed = v.length();
+          const angSpeed = av.length();
+
+          // Repouso estático absoluto: velocidade linear < 0.25 e angular < 0.25
+          // Exige 28 frames consecutivos (~460ms) de repouso verdadeiro após pelo menos 800ms de rolagem
+          if (speed < 0.25 && angSpeed < 0.25 && (now - d.startTime > 800)) {
+            d.stableCount++;
+          } else {
+            d.stableCount = 0;
+          }
+
+          // Só finaliza quando o dado parar TOTALMENTE de forma física e natural (sem corte abrupto)
+          // O limite de 10 segundos existe unicamente como proteção contra falhas catastróficas de simulação
+          if (d.stableCount >= 28 || (now - d.startTime > 10000)) {
+            d.isFinished = true;
+            this.handleDieSettled(d);
+          }
+        }
+      }
+
+      // Renderiza cena WebGL
+      this.renderer.render(this.scene, this.camera);
+    };
+
+    this.animFrameId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Chamado quando o dado físico para completamente de se mover
+   */
+  static handleDieSettled(dieData) {
+    soundFX.playRuneClick();
+
+    // 0. Imobiliza completamente o corpo físico no ponto exato de repouso
+    if (dieData.dieMesh && dieData.dieMesh.body) {
+      dieData.dieMesh.body.velocity.set(0, 0, 0);
+      dieData.dieMesh.body.angularVelocity.set(0, 0, 0);
+      dieData.dieMesh.body.sleep();
+    }
+    dieData.dieInstance.updateMeshFromBody();
+
+    // 1. LEITURA FÍSICA GENUÍNA DA FACE SUPERIOR (Sem qualquer teletransporte ou troca de textura!)
+    let physicalValue = dieData.dieInstance.getUpsideValue();
+    if (dieData.sides === 10 && physicalValue === 0) {
+      physicalValue = 10;
+    }
+    physicalValue = Math.max(1, Math.min(dieData.sides, physicalValue));
+
+    const isCrit = (dieData.sides === 20 && physicalValue === 20);
+    const isFumble = (dieData.sides === 20 && physicalValue === 1);
+
+    // 2. Criação de Círculo Ritualístico de Contenção perfeitamente concêntrico sob o dado
+    const THREE = window.THREE;
+    const auraColor = isCrit ? 0x06b6d4 : isFumble ? 0xff333d : 0xe21b23;
+    
+    const auraGroup = new THREE.Group();
+    auraGroup.position.set(dieData.dieMesh.position.x, 0.4, dieData.dieMesh.position.z);
+
+    const outerGeo = new THREE.RingGeometry(29, 31, 64);
+    const outerMat = new THREE.MeshBasicMaterial({
+      color: auraColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
+    });
+    const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+    outerMesh.rotation.x = -Math.PI / 2;
+    auraGroup.add(outerMesh);
+
+    const innerGeo = new THREE.RingGeometry(23, 24.5, 64);
+    const innerMat = new THREE.MeshBasicMaterial({
+      color: auraColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.55
+    });
+    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+    innerMesh.rotation.x = -Math.PI / 2;
+    auraGroup.add(innerMesh);
+
+    this.scene.add(auraGroup);
+    dieData.auraMesh = auraGroup;
+    dieData.auraMats = [outerMat, innerMat];
+    dieData.auraGeos = [outerGeo, innerGeo];
+
+    // 3. Atualiza badge flutuante superior com o resultado físico real
+    if (dieData.labelBadge) {
+      if (isCrit) {
+        dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#06b6d4]').replace('text-white', 'text-[#06b6d4]');
+        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#06b6d4] text-black font-black">[ 20 CRÍTICO ]</span>`;
+      } else if (isFumble) {
+        dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#ff333d]').replace('text-white', 'text-[#ff333d]');
+        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#ff333d] text-white font-black">[ 1 FALHA ]</span>`;
+      } else {
+        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#e21b23] text-white font-black">[ RESULTADO: ${physicalValue} ]</span>`;
+      }
+    }
+
+    // 4. Remove badge flutuante após 2.5 segundos
+    setTimeout(() => {
+      dieData.labelBadge?.remove();
+    }, 2500);
+
+    // 5. RESOLVE A PROMISE: Envia o valor da face física para cálculo e exibição do popup!
+    dieData.resolveCallback({
+      rolledValue: physicalValue,
+      isCrit,
+      isFumble,
+      sides: dieData.sides,
+      label: dieData.label
+    });
+
+    // 6. Mantém o dado 3D descansando na mesa por 4.0 segundos (estilo Foundry VTT)
+    setTimeout(() => {
+      const fadeStart = performance.now();
+      const fadeDuration = 700;
+
+      const fadeInterval = setInterval(() => {
+        const elapsed = performance.now() - fadeStart;
+        const p = Math.min(elapsed / fadeDuration, 1);
+        
+        outerMat.opacity = (1 - p) * 0.85;
+        innerMat.opacity = (1 - p) * 0.55;
+
+        if (Array.isArray(dieData.dieMesh.material)) {
+          dieData.dieMesh.material.forEach(m => {
+            m.transparent = true;
+            m.opacity = 1 - p;
+          });
+        }
+
+        if (p >= 1) {
+          clearInterval(fadeInterval);
+          this.cleanupDie(dieData);
+        }
+      }, 30);
+
+    }, 4000);
+  }
+
+  static cleanupDie(dieData) {
+    // Remove listeners
+    dieData.dieMesh.body?.removeEventListener('collide', dieData.onCollide);
+
+    // Remove do Three.js e Cannon.js
+    this.scene.remove(dieData.dieMesh);
+    if (dieData.auraMesh) {
+      this.scene.remove(dieData.auraMesh);
+      dieData.auraGeos?.forEach(g => g.dispose());
+      dieData.auraMats?.forEach(m => m.dispose());
+    }
+    this.world.remove(dieData.dieMesh.body);
+
+    // Remove do array de ativos
+    const idx = this.activeDice.indexOf(dieData);
+    if (idx !== -1) {
+      this.activeDice.splice(idx, 1);
+    }
+
+    // Se não houver mais dados ativos, desativa o loop para economizar 100% de GPU/CPU
+    if (this.activeDice.length === 0) {
+      this.isLoopRunning = false;
+      if (this.animFrameId) {
+        cancelAnimationFrame(this.animFrameId);
+        this.animFrameId = null;
+      }
+      this.renderer.clear();
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.DiceAnimator = DiceAnimator;
+}

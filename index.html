@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAROXISMO — Compêndio Oficial SRD (Sistema d20)</title>
+  <meta name="description" content="Experiência de Interface de RPG Dark Fantasy AAA — PAROXISMO d20." />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            void: '#050505',
+            abyss: '#0a0a0a',
+            blood: '#e21b23',
+            iron: '#161616',
+            steel: '#8e95a5'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & Custom Occult Stylesheets -->
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_optimized_v1" />
+  <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
+</head>
+<body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative overflow-x-hidden">
+
+  <!-- ============================================================ -->
+  <!-- CENOGRAFIA ATMOSFÉRICA DE FUNDO (Z-0, Z-1, Z-2) -->
+  <!-- ============================================================ -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Sigilo Monumental Astral com Rotação Imperceptível -->
+  <div class="astral-sigil-bg" aria-hidden="true">
+    <svg viewBox="0 0 500 500" class="w-full h-full text-white fill-none stroke-current" stroke-width="1.5">
+      <circle cx="250" cy="250" r="230" stroke-dasharray="8,8"/>
+      <circle cx="250" cy="250" r="200"/>
+      <polygon points="250,50 423,350 77,350" />
+      <polygon points="250,450 423,150 77,150" />
+      <circle cx="250" cy="250" r="140" stroke-dasharray="4,4"/>
+      <circle cx="250" cy="250" r="80"/>
+      <text x="250" y="260" font-family="'Cinzel', serif" font-size="36" font-weight="900" text-anchor="middle" fill="#ffffff" stroke="none">☩</text>
+    </svg>
+  </div>
+
+  <div class="cinematic-vignette" aria-hidden="true"></div>
+  <div class="film-grain-overlay" aria-hidden="true"></div>
+  <div class="colossal-occult-watermark" aria-hidden="true"></div>
+
+  <!-- Backdrop Escuro para Menu de Rodas Aberto em Mobile -->
+  <div id="rotary-backdrop" class="rotary-backdrop" aria-hidden="true"></div>
+
+  <!-- ============================================================ -->
+  <!-- RODA DE OPÇÕES ROTATIVA GLOBAL (DIRETO NO BODY - 100% VIEWPORT ANCHORED) -->
+  <!-- ============================================================ -->
+  <aside id="rotary-nav" class="rotary-wheel-system" title="Role o scroll do mouse ou arraste para girar a roda de opções">
+    
+    <!-- Botão de Puxar / Esconder a Roda de Opções (Exclusivo Celular/Tablet) -->
+    <button id="rotary-drawer-toggle-btn" class="rotary-drawer-toggle-btn lg:hidden" title="Recolher / Expandir Menu de Rodas" aria-label="Menu de Navegação">
+      <span class="rotary-drawer-badge" id="rotary-drawer-badge">00</span>
+      <span class="rotary-drawer-label" id="rotary-drawer-label">MENU</span>
+      <span class="rotary-drawer-arrow" id="rotary-drawer-arrow">❯</span>
+    </button>
+
+    <!-- Controles de Giro Manual -->
+    <button id="rotary-prev-btn" class="rotary-ctrl-btn up" title="Girar Roda para Cima (Scroll / Seta Cima)">▲</button>
+    <button id="rotary-next-btn" class="rotary-ctrl-btn down" title="Girar Roda para Baixo (Scroll / Seta Baixo)">▼</button>
+
+    <!-- Disco Astrolábio em Meio Círculo Rúnico (Desenho da Roda) -->
+    <svg id="rotary-dial-svg" class="rotary-dial-canvas" viewBox="0 0 240 560">
+      <path d="M 0,80 A 200,200 0 0,1 0,480" fill="none" stroke="#1c1f26" stroke-width="2" />
+      <path d="M 0,105 A 175,175 0 0,1 0,455" fill="none" stroke="#e21b23" stroke-width="1.5" stroke-dasharray="4,6" opacity="0.65" />
+      <path d="M 0,135 A 145,145 0 0,1 0,425" fill="none" stroke="#242833" stroke-width="1" />
+      <path d="M 0,165 A 115,115 0 0,1 0,395" fill="none" stroke="#e21b23" stroke-width="1" stroke-dasharray="2,6" opacity="0.35" />
+    </svg>
+
+    <!-- Pista de Nós Radiais Rotativos (Posicionados Dinamicamente em Ângulos) -->
+    <div id="rotary-nodes-track" class="rotary-nodes-track">
+      <!-- Gerado dinamicamente pelo RotaryWheelController em app.js -->
+    </div>
+
+  </aside>
+
+  <!-- ============================================================ -->
+  <!-- BARRA DE FERRAMENTAS FLUTUANTE (HUD SUPERIOR DIREITO)        -->
+  <!-- ============================================================ -->
+  <div class="fixed top-3 right-3 sm:top-4 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 print:hidden">
+    <button id="palette-trigger-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/90 hover:bg-[#121622] text-[#cbd0dc] hover:text-white border border-white/10 hover:border-[#06b6d4] backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)] cursor-pointer" title="Busca Inteligente (Ctrl + K)">
+      <span class="text-[#06b6d4]">⌕</span>
+      <span class="hidden sm:inline">BUSCA</span>
+      <kbd class="px-1 py-0.2 bg-black/60 border border-white/20 text-[8px] sm:text-[9px] text-white/70">Ctrl K</kbd>
+    </button>
+    <button id="quick-dice-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/90 hover:bg-[#121622] text-[#cbd0dc] hover:text-[#e21b23] border border-white/10 hover:border-[#e21b23] backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)] cursor-pointer" title="Rolar Dado d20 3D">
+      <span class="text-[#e21b23]">🎲</span>
+      <span class="hidden sm:inline">D20</span>
+    </button>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MOLDURA EXTERNA DO JOGO (VIEWPORT BRUTALISTA DE FERRO) -->
+  <!-- ============================================================ -->
+  <div class="nadir-game-viewport">
+
+    <!-- Header Removido conforme solicitado pelo usuário -->
+
+    <!-- Banner Secreto de Mestre quando Desbloqueado -->
+    <div id="gm-active-banner" class="hidden bg-[#e21b23] text-[#050505] px-4 py-1 flex items-center justify-between text-[10px] font-mono font-black mt-2">
+      <span>✠ PACTO DO CONDUTOR ATIVO — SEGREDOS DE AMEAÇAS & ENREDO REVELADOS ✠</span>
+      <button id="gm-lock-back-btn" class="underline font-black hover:text-white">[ SELAR PARA JOGADORES × ]</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CORPO: ESPAÇO RESERVADO À ESQUERDA + PALCO CENTRAL           -->
+    <!-- ============================================================ -->
+    <div class="flex-1 flex flex-col lg:flex-row gap-6 my-2">
+      
+      <!-- Espaço reservado para o menu fixo não sobrepor o conteúdo (Apenas Desktop) -->
+      <div class="hidden lg:block w-[240px] flex-shrink-0 pointer-events-none" aria-hidden="true"></div>
+
+      <!-- PALCO DE CONTEÚDO PRINCIPAL (RENDERIZADO PELO APP.JS) -->
+      <main id="main-content" class="flex-1 min-w-0">
+        <!-- Renderizado dinamicamente com física 3D e atmosfera -->
+      </main>
+
+    </div>
+
+    <!-- Rodapé Removido conforme solicitado pelo usuário -->
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL DO MESTRE (QUEBRA DO SELO DO DEMIURGO) -->
+  <!-- ============================================================ -->
+  <div id="gm-auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+    <div class="iron-carved-card max-w-lg w-full p-8 shadow-[0_0_45px_#e21b23] space-y-5 border border-[#e21b23]">
+      <div class="border-b border-[#e21b23] pb-3">
+        <span class="text-[10px] font-mono font-bold text-[#e21b23] block mb-1">[ PACTO CONFIDENCIAL ]</span>
+        <h3 class="text-2xl font-serif font-black text-white">Quebra do Selo do Demiurgo</h3>
+      </div>
+      <p class="text-xs font-liturgical italic leading-relaxed text-white">
+        "O Bestiário do Avesso e a Aventura 'O Despertar' revelam fraquezas investigativas, valores de desafio (VD) e resoluções de enigmas ocultos. A quebra deste selo dissipa o mistério para jogadores comuns."
+      </p>
+      <div class="pt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
+        <button id="cancel-gm-auth-btn" class="w-full sm:w-auto btn-ritual-steel text-xs">
+          [ PERMANECER COMO JOGADOR ]
+        </button>
+        <button id="confirm-gm-auth-btn" class="w-full sm:w-auto btn-ritual-blood text-xs">
+          [ ROMPER O SELO → ]
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL DE COMMAND PALETTE (CTRL + K) -->
+  <!-- ============================================================ -->
+  <!-- ============================================================ -->
+  <!-- MODAL DE COMMAND PALETTE (CTRL + K) -->
+  <!-- ============================================================ -->
+  <div id="command-palette-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md">
+    <div class="border border-[#e21b23] bg-[#07090e] max-w-2xl w-full shadow-[0_0_40px_rgba(226,27,35,0.5)] overflow-hidden mt-12">
+      <div class="p-4 border-b border-white/[0.08] flex items-center gap-3 bg-[#0a0d15]">
+        <span class="text-xs font-mono text-[#e21b23] font-black tracking-wider">[ BUSCA INTELIGENTE ]</span>
+        <input type="text" id="palette-input" placeholder="Pesquisar arquétipos (ex: Pavor + Rancor), rituais, classes..." 
+               class="w-full bg-transparent text-xs text-white placeholder-white/40 focus:outline-none font-mono" autocomplete="off" />
+        <kbd class="px-2 py-0.5 bg-black border border-white/20 text-[9px] font-mono text-white">ESC</kbd>
+      </div>
+      <div id="palette-results" class="p-2 max-h-[60vh] overflow-y-auto"></div>
+      <div class="px-4 py-2 bg-[#040508] border-t border-white/[0.06] flex flex-wrap items-center justify-between text-[10px] font-mono text-white/40 gap-2">
+        <div class="flex items-center gap-3">
+          <span><kbd class="px-1 py-0.5 bg-white/10 text-white rounded-xs">↑</kbd> <kbd class="px-1 py-0.5 bg-white/10 text-white rounded-xs">↓</kbd> NAVEGAR</span>
+          <span><kbd class="px-1.5 py-0.5 bg-[#e21b23] text-black font-black rounded-xs">ENTER</kbd> IR DIRETO</span>
+        </div>
+        <span>Dica: use <strong class="text-[#06b6d4]">Pavor + Rancor</strong> para arquétipos</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- GAVETA LATERAL DO DADO D20 -->
+  <!-- ============================================================ -->
+  <div id="dice-drawer" class="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0a0a0a] border-l border-[#e21b23] shadow-[0_0_40px_#e21b23] transform translate-x-full transition-transform duration-300 flex flex-col print:hidden">
+    <div class="p-4 border-b border-[#e21b23] flex items-center justify-between">
+      <div>
+        <span class="text-[9px] font-mono uppercase text-[#e21b23] font-bold block">[ INSTRUMENTO LITÚRGICO ]</span>
+        <h4 class="font-serif font-bold text-white text-base">Rolador de Dados do Avesso</h4>
+      </div>
+      <button id="close-dice-btn" class="p-1 bg-[#050505] text-white hover:text-[#e21b23] border border-[#242833]">
+        [ × ]
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4">
+      <div id="dice-roller-container"></div>
+    </div>
+  </div>
+
+  <!-- Motores Gráficos 3D & Física WebGL (Foundry VTT Architecture) -->
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/vendor/cannon.min.js"></script>
+
+  <!-- Script Principal SPA -->
+  <script type="module" src="js/app.js?v=perf_v2"></script>
+</body>
+</html>

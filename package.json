@@ -1,0 +1,20 @@
+{
+  "name": "paroxismo-srd",
+  "version": "1.0.0",
+  "description": "PAROXISMO — Compêndio Oficial SRD (Sistema d20)",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve . -p 8080",
+    "start": "npx serve . -p 8080",
+    "build": "node -e \"console.log('Build OK: Static files ready')\""
+  },
+  "keywords": [
+    "rpg",
+    "d20",
+    "srd",
+    "paroxismo",
+    "dark-fantasy"
+  ],
+  "author": "Paroxismo",
+  "license": "MIT"
+}

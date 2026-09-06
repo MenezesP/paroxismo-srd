@@ -1,0 +1,2750 @@
+/**
+ * PAROXISMO — AAA LIVING GRIMOIRE DESIGN SYSTEM & ENGINE
+ * Inspirado em Diablo IV, FromSoftware, Darkest Dungeon e Supergiant Games
+ * Paleta Estrita: #050505, #0A0A0A, #111111, #E21B23, #FFFFFF, Aço Frio & Pátina
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@500;700;800;900&family=Spectral:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+:root {
+  /* Escuridão do Vácuo */
+  --void-black: #050505;
+  --abyss-deep: #0a0a0a;
+  --iron-plate: #111111;
+  --iron-surface: #161616;
+  --iron-edge: #242833;
+  --cold-steel: #8e95a5;
+
+  /* Sangue Ocultista Calibrado */
+  --blood-crimson: #e21b23;
+  --blood-glow: rgba(226, 27, 35, 0.45);
+  --blood-mist: rgba(226, 27, 35, 0.12);
+  --blood-subtle: rgba(226, 27, 35, 0.05);
+
+  /* Nanquim & Osso */
+  --bone-white: #ffffff;
+  --bone-aged: #ece9e2;
+  --gold-patina: #9a8353;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--void-black) !important;
+  color: var(--bone-white) !important;
+  font-family: 'JetBrains Mono', monospace;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Tipografia */
+h1, h2, h3, h4, h5, .font-serif {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.font-display {
+  font-family: 'Cinzel Decorative', serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-liturgical {
+  font-family: 'Spectral', serif;
+}
+
+/* ============================================================ */
+/* CENOGRAFIA DE FUNDO & ATMOSFERA (Z-INDEX 0 & 1) */
+/* ============================================================ */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.85;
+}
+
+/* Sigilo Monumental de Fundo com Rotação Imperceptível */
+.astral-sigil-bg {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 860px;
+  height: 860px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.04;
+  animation: slowOrbit 280s linear infinite;
+}
+
+@keyframes slowOrbit {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Vinheta Ótica Cinemática */
+.cinematic-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.75) 100%),
+              radial-gradient(circle at 50% 0%, rgba(226, 27, 35, 0.08) 0%, transparent 60%);
+}
+
+/* ============================================================ */
+/* VIEWPORT DO JOGO COM MOLDURA DE FERRO BRUTALISTA (Z-INDEX 10) */
+/* ============================================================ */
+.nadir-game-viewport {
+  position: relative;
+  z-index: 10;
+  min-height: calc(100vh - 16px);
+  margin: 8px;
+  border: 1px solid var(--iron-edge);
+  background: rgba(10, 10, 10, 0.94);
+  box-shadow: 
+    0 0 0 1px #000000,
+    0 0 0 2px rgba(226, 27, 35, 0.3),
+    inset 0 0 40px rgba(0, 0, 0, 0.95);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Cantoneiras de Mira de Ferro nos 4 Vértices */
+.nadir-game-viewport::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 14px;
+  height: 14px;
+  border-top: 3px solid var(--blood-crimson);
+  border-left: 3px solid var(--blood-crimson);
+  pointer-events: none;
+}
+
+.nadir-game-viewport::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 3px solid var(--blood-crimson);
+  border-right: 3px solid var(--blood-crimson);
+  pointer-events: none;
+}
+
+/* ============================================================ */
+/* HUD SUPERIOR DE VIDEOGAME (Z-INDEX 20) */
+/* ============================================================ */
+.game-hud-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--iron-edge);
+  position: relative;
+  z-index: 20;
+}
+
+.game-hud-bar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20%;
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--blood-crimson), transparent);
+}
+
+.hud-pill {
+  background: var(--void-black);
+  border: 1px solid var(--iron-edge);
+  padding: 4px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.hud-pill:hover {
+  border-color: var(--cold-steel);
+}
+
+.hud-pill.highlight {
+  border-color: var(--blood-crimson);
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.3);
+}
+
+/* ============================================================ */
+/* ============================================================ */
+/* BACKDROP ESCURO PARA MENU DE RODAS NO CELULAR                */
+/* ============================================================ */
+.rotary-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 45;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rotary-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================================ */
+/* RODA DE OPÇÕES ROTATIVA DE VIDEOGAME (ROTARY SELECTION WHEEL) */
+/* ============================================================ */
+.rotary-wheel-system {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 250px;
+  min-height: 560px;
+  height: 580px;
+  flex-shrink: 0;
+  user-select: none;
+  overflow: visible;
+  touch-action: pan-y;
+  cursor: grab;
+  border-right: none;
+  z-index: 50;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), left 0.3s ease;
+  will-change: transform;
+}
+
+.rotary-wheel-system:active {
+  cursor: grabbing;
+}
+
+/* Botão Gaveta / Puxador do Menu (Oculto no Desktop por Padrão) */
+.rotary-drawer-toggle-btn {
+  display: none !important;
+}
+
+.rotary-drawer-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--blood-crimson);
+  background: #1e0204;
+  border: 1px solid rgba(226, 27, 35, 0.6);
+  border-radius: 2px;
+  padding: 1px 5px;
+  line-height: 1;
+}
+
+.rotary-drawer-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bone-white);
+  letter-spacing: 0.12em;
+}
+
+.rotary-drawer-arrow {
+  font-size: 10px;
+  color: var(--cold-steel);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+/* Regras Responsivas para Celular e Tablet (< 1024px) */
+@media (max-width: 1023px) {
+  .rotary-wheel-system {
+    left: 0;
+  }
+
+  .rotary-wheel-system.collapsed {
+    transform: translateY(-50%) translateX(-100%);
+  }
+
+  /* Quando recolhido no celular, esconde completamente os nós e o canvas para não vazar texto na tela */
+  .rotary-wheel-system.collapsed .rotary-nodes-track,
+  .rotary-wheel-system.collapsed .rotary-dial-canvas,
+  .rotary-wheel-system.collapsed .rotary-ctrl-btn {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.2s ease;
+  }
+
+  .rotary-wheel-system:not(.collapsed) {
+    transform: translateY(-50%) translateX(10px);
+  }
+
+  .rotary-wheel-system:not(.collapsed) .rotary-nodes-track,
+  .rotary-wheel-system:not(.collapsed) .rotary-dial-canvas,
+  .rotary-wheel-system:not(.collapsed) .rotary-ctrl-btn {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  .rotary-wheel-system:not(.collapsed) .rotary-drawer-arrow {
+    transform: rotate(180deg);
+    color: var(--blood-crimson);
+  }
+
+  /* O botão SÓ APARECE NO CELULAR e no topo, sem cobrir nenhum nó de texto */
+  .rotary-drawer-toggle-btn {
+    display: flex !important;
+    position: absolute;
+    top: 24px;
+    right: -92px;
+    align-items: center;
+    gap: 6px;
+    background: #06080d;
+    border: 1.5px solid var(--blood-crimson);
+    border-left: none;
+    padding: 8px 12px 8px 10px;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    z-index: 55;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.9), 0 0 16px rgba(226, 27, 35, 0.4);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .rotary-drawer-toggle-btn:hover {
+    background: #140507;
+    border-color: #ff333d;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.95), 0 0 22px rgba(226, 27, 35, 0.7);
+  }
+
+  .rotary-wheel-system:not(.collapsed) .rotary-drawer-toggle-btn {
+    right: -80px;
+    top: 18px;
+  }
+}
+
+/* Em Desktop (>= 1024px), GARANTE QUE O BOTÃO NUNCA APARECE */
+@media (min-width: 1024px) {
+  .rotary-drawer-toggle-btn {
+    display: none !important;
+  }
+}
+
+/* Animação suave de transição de conteúdo (elimina sensação de travada) */
+@keyframes contentFadeIn {
+  0% {
+    opacity: 0.1;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-fade-in {
+  animation: contentFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Disco Astrolábio Rúnico em MEIO CÍRCULO (Arco Esquerdo - Desenho da Roda) */
+.rotary-dial-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 560px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Retículo Focal de Mira no Meio Círculo - Ocultado para não cortar os nomes */
+.rotary-focal-reticle {
+  display: none !important;
+}
+
+/* Controles de Rotação Manual (Botões Chevron de Roda) */
+.rotary-ctrl-btn {
+  position: absolute;
+  left: 8px;
+  width: 28px;
+  height: 24px;
+  background: var(--void-black);
+  border: 1px solid var(--iron-edge);
+  color: var(--cold-steel);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+.rotary-ctrl-btn:hover {
+  border-color: var(--blood-crimson);
+  color: var(--bone-white);
+  box-shadow: 0 0 12px var(--blood-crimson);
+}
+
+.rotary-ctrl-btn.up {
+  top: 8px;
+}
+
+.rotary-ctrl-btn.down {
+  bottom: 8px;
+}
+
+/* Pista dos Nós Radiais Posicionados Trigonometricamente */
+.rotary-nodes-track {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+
+.rotary-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate(-50%, -50%);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.rotary-node-medallion {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--void-black);
+  border: 1.5px solid var(--cold-steel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.9);
+  flex-shrink: 0;
+}
+
+.rotary-node-medallion::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px dashed rgba(142, 149, 165, 0.35);
+  transition: all 0.3s ease;
+}
+
+.rotary-node:hover .rotary-node-medallion::before {
+  transform: rotate(45deg);
+  border-color: var(--blood-crimson);
+}
+
+.rotary-node.active .rotary-node-medallion {
+  border-color: var(--blood-crimson);
+  background: #1e0204;
+  box-shadow: 0 0 30px var(--blood-crimson), inset 0 0 12px rgba(226, 27, 35, 0.6);
+  transform: scale(1.22);
+}
+
+.rotary-node.active .rotary-node-medallion::before {
+  border-color: var(--blood-crimson);
+  transform: rotate(90deg);
+  box-shadow: 0 0 15px rgba(226, 27, 35, 0.5);
+}
+
+.rotary-node-label {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cold-steel);
+  letter-spacing: 0.12em;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.rotary-node:hover .rotary-node-label {
+  color: var(--bone-white);
+}
+
+.rotary-node.active .rotary-node-label {
+  color: var(--blood-crimson);
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 0 14px rgba(226, 27, 35, 0.6);
+}
+
+/* ============================================================ */
+/* CARD FÍSICO 3D TILT COM PERGAMINHO VIVO (Z-INDEX 40) */
+/* ============================================================ */
+.scroll-card-perspective {
+  perspective: 1200px;
+}
+
+.living-scroll-card {
+  position: relative;
+  width: 230px;
+  height: 550px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--iron-edge);
+  background: #0d0d0d;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.living-scroll-card:hover {
+  border-color: var(--cold-steel);
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.95),
+    0 0 25px rgba(226, 27, 35, 0.25);
+}
+
+.living-scroll-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(145%) brightness(102%);
+}
+
+.scroll-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(5, 5, 5, 0.2) 40%, rgba(5, 5, 5, 0.92) 85%, #050505 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px;
+  text-align: center;
+  transform: translateZ(25px);
+}
+
+/* Halo Ritualístico Pulsante */
+.occult-altar-halo {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 2px solid var(--blood-crimson);
+  box-shadow: 0 0 30px var(--blood-crimson), inset 0 0 15px rgba(226, 27, 35, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  background: var(--void-black);
+  overflow: hidden;
+  position: relative;
+}
+
+.occult-altar-halo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Placa Trapezoidal Brutalista */
+.trapezoid-plate {
+  display: inline-block;
+  padding: 4px 18px;
+  background: var(--void-black);
+  border: 1.5px solid var(--blood-crimson);
+  color: var(--bone-white);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  clip-path: polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%);
+  box-shadow: 0 0 15px rgba(226, 27, 35, 0.4);
+}
+
+/* ============================================================ */
+/* MEDALHÕES DE HABILIDADES COM GARRAS DE FERRO (SKILL MEDALLIONS) */
+/* ============================================================ */
+.ritual-skills-dock {
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--iron-edge);
+  padding: 14px 18px;
+  position: relative;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.ritual-skills-dock::before {
+  content: 'RITUAIS EM RESSONÂNCIA ATIVA';
+  position: absolute;
+  top: -8px;
+  left: 20px;
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--blood-crimson);
+  background: var(--void-black);
+  padding: 0 8px;
+  border-left: 2px solid var(--blood-crimson);
+}
+
+.skill-iron-medallion {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--void-black);
+  border: 1.5px solid var(--blood-crimson);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--bone-white);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 10px rgba(226, 27, 35, 0.4);
+  position: relative;
+}
+
+.skill-iron-medallion:hover {
+  transform: scale(1.15) translateY(-2px);
+  border-color: var(--bone-white);
+  box-shadow: 0 0 20px var(--blood-crimson), 0 0 10px #ffffff;
+}
+
+/* ============================================================ */
+/* ESTILOS EDITORIAIS DE COMPÊNDIO OFICIAL TTRPG (SRD WIKI)     */
+/* ============================================================ */
+.ttrpg-book-sheet {
+  background: #090a0d;
+  border: 1px solid #1e222d;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+}
+
+.ttrpg-chapter-header {
+  border-bottom: 2px solid #e21b23;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+}
+
+.ttrpg-rulebook-callout {
+  background: #0d0f14;
+  border: 1px solid #232734;
+  border-left: 3px solid #e21b23;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.ttrpg-tenet-item {
+  background: #07080b;
+  border: 1px solid #1a1d26;
+  padding: 16px;
+  transition: border-color 0.2s ease;
+}
+
+.ttrpg-tenet-item:hover {
+  border-color: #3b4254;
+}
+
+.ttrpg-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #060709;
+  border: 1px solid #1f232e;
+}
+
+.ttrpg-data-table th {
+  background: #111319;
+  color: #e21b23;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  border-bottom: 1px solid #282d3c;
+  text-align: left;
+}
+
+.ttrpg-data-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #141720;
+  color: #c5c9d4;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.ttrpg-data-table tr:hover td {
+  background: #0d0f14;
+  color: #ffffff;
+}
+
+.ttrpg-attr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: #161820;
+  border: 1px solid #282c3c;
+  color: #e21b23;
+}
+
+/* ============================================================ */
+/* OS 3 PEDESTAIS DO ALTAR COM ANÉIS VOLUMÉTRICOS DE CHÃO */
+/* ============================================================ */
+.altar-pedestal-entity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+  perspective: 600px;
+}
+
+.altar-pedestal-entity:hover {
+  transform: translateY(-6px);
+}
+
+.altar-pedestal-halo {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px solid var(--blood-crimson);
+  box-shadow: 0 0 25px rgba(226, 27, 35, 0.45), inset 0 0 15px rgba(226, 27, 35, 0.3);
+  background: var(--void-black);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.altar-pedestal-entity:hover .altar-pedestal-halo {
+  box-shadow: 0 0 35px var(--blood-crimson), inset 0 0 25px var(--blood-crimson);
+  border-color: var(--bone-white);
+}
+
+.altar-pedestal-halo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(155%) brightness(102%);
+}
+
+.altar-ground-runes {
+  width: 160px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px dashed var(--blood-crimson);
+  margin-top: -13px;
+  box-shadow: 0 0 20px rgba(226, 27, 35, 0.35);
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(226, 27, 35, 0.15) 0%, transparent 70%);
+}
+
+/* Textura de Film Grain & Pergaminho Macerado (mix-blend overlay) */
+.film-grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* Gravura Alquímica Monumental em Baixa Opacidade (3.5% opacidade) */
+.colossal-occult-watermark {
+  position: fixed;
+  right: -120px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 950px;
+  height: 950px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'%3E%3Ccircle cx='400' cy='400' r='380' fill='none' stroke='%23ffffff' stroke-width='1.5'/%3E%3Ccircle cx='400' cy='400' r='350' fill='none' stroke='%23e21b23' stroke-width='1' stroke-dasharray='4,8'/%3E%3Ccircle cx='400' cy='400' r='280' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Cpolygon points='400,20 729,590 71,590' fill='none' stroke='%23ffffff' stroke-width='1.5'/%3E%3Cpolygon points='400,780 729,210 71,210' fill='none' stroke='%23e21b23' stroke-width='1.5'/%3E%3Ccircle cx='400' cy='400' r='160' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3Cline x1='20' y1='400' x2='780' y2='400' stroke='%23ffffff' stroke-width='1' stroke-dasharray='6,6'/%3E%3Cline x1='400' y1='20' x2='400' y2='780' stroke='%23ffffff' stroke-width='1' stroke-dasharray='6,6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* ============================================================ */
+/* ARTEFATOS LITÚRGICOS FÍSICOS (NÃO-SAAS)                      */
+/* ============================================================ */
+
+/* Artefato I: A Chapa de Bronze Forjado (O Códice) */
+.artifact-iron-tablet {
+  background: radial-gradient(circle at 10% 10%, #15171e 0%, #08090c 80%);
+  border: 1px solid #232734;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  padding: 24px 20px;
+  position: relative;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+}
+
+.artifact-iron-tablet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e21b23, transparent);
+  opacity: 0.6;
+}
+
+.artifact-iron-tablet:hover {
+  border-color: #e21b23;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95), 0 0 25px rgba(226, 27, 35, 0.3);
+}
+
+/* Artefato II: O Dossier Selado do Avesso (Os Despertos) */
+.artifact-sealed-dossier {
+  background: #090a0d;
+  border: 1px solid #282d3c;
+  padding: 24px 20px;
+  position: relative;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+  transform: rotate(-0.5deg);
+}
+
+.artifact-sealed-dossier:hover {
+  transform: rotate(0deg) translateY(-4px);
+  border-color: #8e95a5;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95), 0 0 25px rgba(255, 255, 255, 0.08);
+}
+
+/* Selo Confidencial do Dossier */
+.dossier-confidential-stamp {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1.5px solid #e21b23;
+  color: #e21b23;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transform: rotate(-2deg);
+}
+
+/* Artefato III: O Relicário dos Rituais (O Grimório) */
+.artifact-reliquary-tome {
+  background: radial-gradient(circle at 90% 90%, #170406 0%, #08090c 75%);
+  border: 1px solid #331518;
+  padding: 24px 20px;
+  position: relative;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+}
+
+.artifact-reliquary-tome:hover {
+  border-color: #e21b23;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95), 0 0 30px rgba(226, 27, 35, 0.4);
+}
+
+/* Lacre de Cera Ocultista */
+.wax-seal-crest {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1e0305;
+  border: 1.5px solid #e21b23;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e21b23;
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.5);
+}
+
+/* ============================================================ */
+/* COMPONENTES NATIVOS DO HERO: FICHA ESTILIZADA & SIGILO VIVO   */
+/* Inspirado na composição da imagem de referência 1 & 2         */
+/* ============================================================ */
+
+/* CONTAINER COM PERSPECTIVA 3D (PROFUNDIDADE ESPACIAL REAL - DIREÇÃO INVERTIDA) */
+.shizuka-perspective-wrapper {
+  perspective: 1100px;
+  perspective-origin: 25% 50%;
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  z-index: 30;
+}
+
+/* DECK DE HABILIDADES INCLINADO COM PROFUNDIDADE 3D (ESTILO SHIZUKA) */
+.shizuka-ability-deck {
+  transform: rotateY(-16deg) rotateX(4deg) rotateZ(-3deg);
+  transform-origin: center left;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  filter: drop-shadow(16px 20px 32px rgba(0, 0, 0, 0.95));
+  position: relative;
+  z-index: 30;
+}
+
+.shizuka-ability-deck:hover {
+  transform: rotateY(-10deg) rotateX(2deg) rotateZ(-2deg) scale(1.02);
+  filter: drop-shadow(20px 26px 40px rgba(0, 0, 0, 1));
+}
+
+/* CARTÃO DE HABILIDADE COM BORDAS RASGADAS EM 3D */
+.shizuka-strip-card {
+  background: #0b0d12;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  clip-path: polygon(
+    0% 4px, 2% 0px, 14% 3px, 35% 0px, 65% 2px, 88% 0px, 98% 3px, 100% 1px,
+    99% 30%, 100% 65%, 98% 90%, 100% 98%,
+    98% 100%, 82% 98%, 60% 100%, 38% 97%, 16% 100%, 0% 97%,
+    1% 72%, 0% 45%, 2% 20%
+  );
+  box-shadow: 8px 12px 24px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(255, 255, 255, 0.1);
+  transform-style: preserve-3d;
+  z-index: 30;
+}
+
+.shizuka-strip-card:hover {
+  box-shadow: 12px 16px 30px rgba(0, 0, 0, 0.98), 0 0 25px rgba(226, 27, 35, 0.45);
+}
+
+/* Fita Branca Rasgada de Cabeçalho (Olhar Vital / Flechas de Sangue) */
+.shizuka-tape-white {
+  background: #eae5da;
+  color: #0b0c10;
+  padding: 10px 18px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  clip-path: polygon(
+    0% 2px, 4% 0px, 16% 3px, 38% 0px, 62% 2px, 85% 0px, 96% 2px, 100% 0px,
+    100% 100%, 84% 98%, 62% 100%, 38% 97%, 16% 100%, 0% 98%
+  );
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Fita Vermelha Rasgada de Cabeçalho (Chuva de Flechas / O Estrondo) */
+.shizuka-tape-crimson {
+  background: #960c12;
+  color: #ffffff;
+  padding: 10px 18px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  clip-path: polygon(
+    0% 1px, 5% 3px, 20% 0px, 45% 2px, 70% 0px, 92% 3px, 100% 1px,
+    100% 99%, 85% 97%, 65% 100%, 35% 98%, 15% 100%, 0% 98%
+  );
+  box-shadow: 0 4px 16px rgba(150, 12, 18, 0.7);
+}
+
+.shizuka-strip-body {
+  padding: 12px 18px 14px 18px;
+  background: radial-gradient(circle at 15% 50%, #131620 0%, #07080b 100%);
+  color: #cbd0dc;
+  font-family: 'Cinzel', serif;
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.65;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* SELO ESPINHOSO DEMONÍACO DE ATRIBUTOS (INSPIRADO NA REFERÊNCIA 1) */
+.demonic-thorny-crest {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  margin: 0 auto sm:margin: 0;
+}
+
+.demonic-node {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: radial-gradient(circle at 35% 35%, #1c202a 0%, #06070a 85%);
+  border: 1.5px solid #e21b23;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(226, 27, 35, 0.45), inset 0 0 10px rgba(0, 0, 0, 0.95);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 5;
+  cursor: pointer;
+}
+
+.demonic-node:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+  box-shadow: 0 0 24px rgba(226, 27, 35, 0.85), 0 0 10px #ffffff;
+}
+
+/* ÍCONE COLOSSAL DE PAROXISMO NA COLUNA DIREITA (CIRCUNFERÊNCIAS NO TAMANHO IDEAL) */
+.living-sigil-monolith-huge {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  height: 640px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.colossal-sigil-circumferences {
+  position: absolute;
+  width: 840px;
+  height: 840px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* SÍMBOLO OFICIAL LIVRE DE PAROXISMO (LOGO CENTRAL BEM MAIOR - 640PX DE ALTURA REAL) */
+.colossal-sigil-core {
+  width: 480px;
+  height: 640px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.4s ease, filter 0.4s ease;
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.colossal-sigil-core:hover {
+  transform: scale(1.05);
+}
+
+.colossal-sigil-core img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: filter 0.4s ease;
+}
+
+.alchemy-ring-outer {
+  animation: spinSlow 75s linear infinite;
+}
+
+.alchemy-ring-inner {
+  animation: spinReverse 45s linear infinite;
+}
+
+@keyframes spinReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.sigil-breathing-aura {
+  animation: breathingGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes breathingGlow {
+  0% {
+    filter: drop-shadow(0 0 30px rgba(226, 27, 35, 0.75)) drop-shadow(0 0 60px rgba(226, 27, 35, 0.35));
+    transform: scale(1);
+  }
+  100% {
+    filter: drop-shadow(0 0 55px rgba(226, 27, 35, 1)) drop-shadow(0 0 110px rgba(226, 27, 35, 0.65));
+    transform: scale(1.035);
+  }
+}
+
+/* ============================================================ */
+/* BOTÕES & CARTAS DE TAROT EM VELINO PROFANO */
+/* ============================================================ */
+.btn-ritual-blood {
+  background: var(--void-black);
+  border: 1.5px solid var(--blood-crimson);
+  color: var(--bone-white);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 14px rgba(226, 27, 35, 0.35);
+}
+
+.btn-ritual-blood:hover {
+  background: var(--blood-crimson);
+  color: var(--void-black);
+  box-shadow: 0 0 25px var(--blood-crimson);
+}
+
+.btn-ritual-steel {
+  background: var(--void-black);
+  border: 1.5px solid var(--cold-steel);
+  color: var(--bone-white);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ritual-steel:hover {
+  border-color: var(--bone-white);
+  background: #181a20;
+}
+
+/* Caixas Entalhadas com Colchetes de Ferro */
+.iron-carved-card {
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--iron-edge);
+  padding: 16px;
+  position: relative;
+}
+
+.iron-carved-card::before {
+  content: '{';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Cinzel', serif;
+  font-size: 30px;
+  color: var(--blood-crimson);
+  line-height: 1;
+}
+
+.iron-carved-card::after {
+  content: '}';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Cinzel', serif;
+  font-size: 30px;
+  color: var(--blood-crimson);
+  line-height: 1;
+}
+
+/* Cartas de Grimório em Velino */
+.grimoire-vellum-card {
+  background: rgba(14, 14, 14, 0.95);
+  border: 1px solid var(--iron-edge);
+  padding: 16px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.grimoire-vellum-card:hover {
+  border-color: var(--blood-crimson);
+  box-shadow: 0 0 25px rgba(226, 27, 35, 0.35);
+  transform: translateY(-3px);
+}
+
+/* ============================================================ */
+/* GRIMÓRIO DE REGRAS — ESTILO EDITORIAL LITÚRGICO AAA          */
+/* (Inspirado em Darkest Dungeon, Mörk Borg e Diablo IV Codex)  */
+/* ============================================================ */
+
+/* O Altar Monumental da Fórmula d20 */
+.grimoire-formula-altar {
+  background: radial-gradient(circle at 50% 30%, #151821 0%, #07080b 85%);
+  border: 1.5px solid #2a3040;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), inset 0 0 60px rgba(0, 0, 0, 0.9);
+  padding: 32px 24px;
+  position: relative;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  text-align: center;
+}
+
+.grimoire-formula-altar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e21b23, transparent);
+}
+
+.grimoire-formula-display {
+  font-family: 'Cinzel Decorative', 'Cinzel', serif;
+  font-size: clamp(1.3rem, 3vw, 2.3rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-shadow: 0 0 25px rgba(226, 27, 35, 0.85), 0 0 50px rgba(226, 27, 35, 0.4);
+  line-height: 1.35;
+}
+
+/* Selos Estatísticos de Ficha com Sangue */
+.stat-blood-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #e21b23;
+  text-shadow: 0 0 14px rgba(226, 27, 35, 0.9);
+  letter-spacing: 0.05em;
+}
+
+/* Carimbo Ocultista em Velino */
+.grimoire-stamp-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1.5px solid #e21b23;
+  color: #e21b23;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  transform: rotate(-1.5deg);
+  background: rgba(226, 27, 35, 0.06);
+  box-shadow: 0 0 10px rgba(226, 27, 35, 0.2);
+}
+
+/* Degraus da Escala de Dificuldades (CDs) - Não-Excel */
+.cd-ladder-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #08090d;
+  border: 1px solid #1a1d26;
+  border-left: 4px solid transparent;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.cd-ladder-step:hover {
+  background: #10131b;
+  border-color: #2b3242;
+  border-left-color: #e21b23;
+  transform: translateX(4px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.9), 0 0 18px rgba(226, 27, 35, 0.2);
+}
+
+.cd-ladder-step.highlight {
+  border-left-color: #e21b23;
+  background: linear-gradient(90deg, rgba(226, 27, 35, 0.08) 0%, #08090d 100%);
+}
+
+.cd-ladder-number {
+  min-width: 70px;
+  font-family: 'Cinzel', serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #e21b23;
+  text-shadow: 0 0 14px rgba(226, 27, 35, 0.85);
+  line-height: 1;
+}
+
+/* Cartões de Reação em Combate (Linguagem Shizuka da Home) */
+.reaction-card-grimoire {
+  position: relative;
+  background: #090b10;
+  clip-path: polygon(
+    0% 4px, 2% 0px, 14% 3px, 35% 0px, 65% 2px, 88% 0px, 98% 3px, 100% 1px,
+    99% 30%, 100% 65%, 98% 90%, 100% 98%,
+    98% 100%, 82% 98%, 60% 100%, 38% 97%, 16% 100%, 0% 97%,
+    1% 72%, 0% 45%, 2% 20%
+  );
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.95);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.reaction-card-grimoire:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 1), 0 0 25px rgba(226, 27, 35, 0.35);
+}
+
+/* Divisores Ornamentados em Nanquim e Sangue */
+.grimoire-ritual-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 36px 0 28px 0;
+  opacity: 0.85;
+}
+
+.grimoire-ritual-divider::before,
+.grimoire-ritual-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #282d3c, #e21b23, #282d3c, transparent);
+}
+
+/* ============================================================ */
+/* DOSSIÊ DO AGENTE — SELEÇÃO AAA DE PERSONAGEM                */
+/* (Inspirado em NieR:Automata, Guilty Gear e Elden Ring UI)    */
+/* ============================================================ */
+
+/* Header Japonês de Alto Contraste */
+.dossier-jp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #8e95a5;
+}
+
+.dossier-jp-kanji {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 900;
+  color: #e21b23;
+  text-shadow: 0 0 10px rgba(226, 27, 35, 0.6);
+}
+
+/* Ocultar barra de rolagem horizontal */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Abas de Arquivo Confidencial (Classes) */
+.dossier-class-tab {
+  padding: 8px 16px;
+  background: #08090d;
+  border: 1px solid #1c202a;
+  color: #8e95a5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  position: relative;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dossier-class-tab:hover {
+  border-color: #3b4255;
+  color: #ffffff;
+  background: #10131c;
+}
+
+.dossier-class-tab.active {
+  background: #141722;
+  border-color: #e21b23;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(226, 27, 35, 0.3), inset 0 0 12px rgba(226, 27, 35, 0.15);
+}
+
+.dossier-class-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e21b23;
+  box-shadow: 0 0 8px #e21b23;
+}
+
+/* Moldura de Tarô / Fotografia de Arquivo Militar */
+.agent-tarot-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 480px;
+  background: #050608;
+  border: 1.5px solid #232836;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95), inset 0 0 40px rgba(0, 0, 0, 0.9);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+.agent-tarot-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  filter: grayscale(25%) contrast(115%) brightness(90%);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
+}
+
+.agent-tarot-frame:hover img {
+  transform: scale(1.04);
+  filter: grayscale(0%) contrast(120%) brightness(95%);
+}
+
+.agent-tarot-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5, 6, 8, 0.95) 100%);
+  pointer-events: none;
+}
+
+/* Medidor de Nível de Ameaça */
+.threat-level-meter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.threat-block {
+  width: 14px;
+  height: 8px;
+  background: #1c202a;
+  border: 1px solid #2d3344;
+}
+
+.threat-block.filled {
+  background: #e21b23;
+  border-color: #ff333c;
+  box-shadow: 0 0 8px rgba(226, 27, 35, 0.8);
+}
+
+/* Linha do Tempo dos Desbloqueios da Classe */
+.dossier-timeline-track {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  padding: 12px 0;
+}
+
+.dossier-timeline-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, #e21b23, #2a2f40, #e21b23);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.dossier-timeline-node {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.dossier-node-dot {
+  width: 14px;
+  height: 14px;
+  background: #07080b;
+  border: 2px solid #3b4255;
+  border-radius: 50%;
+  transition: all 0.25s ease;
+}
+
+.dossier-timeline-node:hover .dossier-node-dot,
+.dossier-timeline-node.active .dossier-node-dot {
+  border-color: #e21b23;
+  background: #e21b23;
+  box-shadow: 0 0 12px #e21b23;
+}
+
+/* Cartas Físicas de Estilos de Combate Sobre a Mesa */
+.physical-combat-card {
+  position: relative;
+  background: radial-gradient(circle at 50% 20%, #151821 0%, #07080b 90%);
+  border: 1px solid #232836;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95);
+  clip-path: polygon(
+    0% 4px, 3% 0px, 15% 2px, 40% 0px, 68% 3px, 90% 0px, 98% 3px, 100% 1px,
+    99% 35%, 100% 70%, 98% 92%, 100% 98%,
+    98% 100%, 80% 98%, 55% 100%, 35% 97%, 14% 100%, 0% 97%,
+    1% 70%, 0% 40%, 2% 15%
+  );
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+
+.physical-combat-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 1), 0 0 25px rgba(226, 27, 35, 0.35);
+  border-color: #e21b23;
+}
+
+.physical-combat-card.active {
+  border-color: #e21b23;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 1), 0 0 30px rgba(226, 27, 35, 0.45);
+}
+
+/* Chapa de Relatório Militar Confidencial (Sem Tabelas) */
+.military-dossier-sheet {
+  background: #07080c;
+  border: 1px solid #1f2330;
+  border-left: 3px solid #e21b23;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+  padding: 24px;
+  position: relative;
+}
+
+.military-dossier-sheet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, transparent 50%, #151822 50%);
+  border-bottom: 1px solid #2a3042;
+  border-left: 1px solid #2a3042;
+}
+
+/* ============================================================ */
+/* ÁRVORE DE HABILIDADES LITÚRGICA — 15 NÓS CANÔNICOS           */
+/* (Inspirado em Dark Souls / Diablo IV Codex / Grimório)      */
+/* ============================================================ */
+
+/* Bloco de Grau de Maestria (Tier) */
+.skill-tier-block {
+  background: #06070a;
+  border: 1px solid #1a1e29;
+  padding: 16px;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.skill-tier-block:hover {
+  border-color: #2b3346;
+}
+
+.skill-tier-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #e21b23;
+  margin-bottom: 12px;
+}
+
+/* Carta Física de Habilidade na Árvore */
+.skill-tree-node-card {
+  background: radial-gradient(circle at 50% 10%, #11141c 0%, #06070a 95%);
+  border: 1px solid #1c212d;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.skill-tree-node-card:hover {
+  border-color: #e21b23;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.9), 0 0 16px rgba(226, 27, 35, 0.25);
+}
+
+.skill-tree-node-card.active {
+  border-color: #e21b23;
+  background: radial-gradient(circle at 50% 10%, #1c202d 0%, #0a0b10 95%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 1), 0 0 22px rgba(226, 27, 35, 0.4);
+}
+
+.skill-tree-node-card.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e21b23;
+  box-shadow: 0 0 8px #e21b23;
+}
+
+/* Grande Carta de Inspeção da Habilidade */
+.skill-inspection-monolith {
+  background: radial-gradient(circle at 50% 15%, #131722 0%, #06070a 85%);
+  border: 1.5px solid #282f42;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95), inset 0 0 40px rgba(0, 0, 0, 0.85);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  position: sticky;
+  top: 24px;
+}
+
+/* ============================================================ */
+/* ATLAS DE CONHECIMENTOS (PERÍCIAS & ORIGENS)                  */
+/* Estilo: Cyberpunk RED + Disco Elysium Journal + Darkest Dungeon */
+/* ============================================================ */
+
+.atlas-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Barra de Navegação Rápida de Categorias */
+.atlas-quick-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 0;
+  border-bottom: 1px solid #1a1e2a;
+}
+
+.atlas-nav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #07090d;
+  border: 1px solid #1f2535;
+  color: #8e95a5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.atlas-nav-chip:hover {
+  border-color: #e21b23;
+  color: #ffffff;
+  background: #0e111a;
+  transform: translateY(-1px);
+}
+
+.atlas-nav-chip.active {
+  border-color: #e21b23;
+  background: #151824;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.35);
+}
+
+/* Painel de Categoria (Capítulo do Compêndio) */
+.atlas-category-panel {
+  margin-bottom: 5rem;
+  position: relative;
+}
+
+.atlas-category-header {
+  border-bottom: 1.5px solid #232938;
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.atlas-category-header::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: #e21b23;
+  box-shadow: 0 0 10px #e21b23;
+}
+
+.atlas-chapter-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 900;
+  color: #e21b23;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Cartão Monumental de Perícia (Página Grampeada de Dossiê) */
+.atlas-skill-card {
+  position: relative;
+  background: #07080c;
+  border: 1.5px solid #1c2230;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(0, 0, 0, 0.6);
+  padding: 1.75rem 1.5rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.atlas-skill-card:hover {
+  border-color: #e21b23;
+  transform: translateY(-4px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.95), 0 0 20px rgba(226, 27, 35, 0.25);
+}
+
+/* Grampo Metálico no Topo do Cartão */
+.atlas-card-staple {
+  position: absolute;
+  top: 0;
+  left: 28px;
+  width: 22px;
+  height: 8px;
+  background: linear-gradient(180deg, #717d98 0%, #3a4254 60%, #171b24 100%);
+  border: 1px solid #1b1f2b;
+  border-top: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  z-index: 10;
+}
+
+.atlas-card-staple::before,
+.atlas-card-staple::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  width: 2px;
+  height: 9px;
+  background: #11141c;
+}
+
+.atlas-card-staple::before { left: 2px; }
+.atlas-card-staple::after { right: 2px; }
+
+/* Moldura de Ilustração Monocromática */
+.atlas-illustration-frame {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  background: radial-gradient(circle, #0e1119 0%, #030406 100%);
+  border: 1px solid #232a3b;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.atlas-illustration-frame::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px dashed rgba(226, 27, 35, 0.2);
+  pointer-events: none;
+}
+
+/* Caixa de Exemplos com CDs de Jogo */
+.atlas-example-box {
+  background: #040508;
+  border-left: 2.5px solid #e21b23;
+  border-top: 1px solid #151924;
+  border-right: 1px solid #151924;
+  border-bottom: 1px solid #151924;
+  padding: 10px 12px;
+}
+
+/* Cartão de Origens */
+.atlas-origin-card {
+  position: relative;
+  background: #08090e;
+  border: 1.5px solid #1f2536;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95);
+  padding: 1.75rem;
+  transition: all 0.3s ease;
+}
+
+.atlas-origin-card:hover {
+  border-color: #e21b23;
+  transform: translateY(-3px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.95), 0 0 22px rgba(226, 27, 35, 0.2);
+}
+
+/* ============================================================ */
+/* BIBLIOTECA ARCANA — ESTANTE DO GRIMÓRIO (200 RITUAIS)         */
+/* ============================================================ */
+
+/* Terminal Analógico Antigo no Topo */
+.arcane-terminal-console {
+  background: #06070a;
+  background-image: linear-gradient(rgba(18, 22, 32, 0.15) 50%, rgba(0, 0, 0, 0.45) 50%);
+  background-size: 100% 4px;
+  border: 2px solid #1f2536;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), inset 0 0 35px rgba(0, 0, 0, 0.85);
+  position: relative;
+  overflow: hidden;
+}
+
+.arcane-terminal-console::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #e21b23 50%, transparent 100%);
+  opacity: 0.7;
+}
+
+/* Barra Lateral do Catálogo (Sidebar) */
+.grimoire-sidebar {
+  background: #06080c;
+  border: 1.5px solid #1b202e;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.9);
+  position: sticky;
+  top: 24px;
+}
+
+.sidebar-section-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 900;
+  color: #e21b23;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #191e2b;
+  display: flex;
+  items-center;
+  justify-content: space-between;
+}
+
+.sidebar-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: #07090d;
+  border: 1px solid #161a25;
+  color: #8e95a5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-filter-btn:hover {
+  border-color: #e21b23;
+  background: #0e111a;
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.sidebar-filter-btn.active {
+  border-color: #e21b23;
+  background: #171b26;
+  color: #ffffff;
+  box-shadow: inset 2px 0 0 #e21b23, 0 0 12px rgba(226, 27, 35, 0.25);
+}
+
+/* Prateleira de Madeira Negra e Ferro (Estante do Grimório) */
+.ritual-shelf-plank {
+  height: 8px;
+  background: linear-gradient(180deg, #1d2332 0%, #0c0e14 100%);
+  border-top: 1px solid #283044;
+  border-bottom: 2px solid #040507;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.9);
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+.ritual-shelf-plank::before,
+.ritual-shelf-plank::after {
+  content: '☩';
+  position: absolute;
+  top: -6px;
+  font-size: 9px;
+  color: #4b5568;
+}
+
+.ritual-shelf-plank::before { left: 8px; }
+.ritual-shelf-plank::after { right: 8px; }
+
+/* Carta de Ritual — Efeito Papel Rasgado e Tinta Vermelha */
+.ritual-grimoire-card {
+  position: relative;
+  background: #07080c;
+  border: 1px solid #1a202e;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.9), inset 0 0 25px rgba(0, 0, 0, 0.6);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 6px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.ritual-grimoire-card:hover {
+  border-color: #e21b23;
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(226, 27, 35, 0.3);
+}
+
+/* Selo de Cera / Tinta Vermelha */
+.ritual-wax-seal {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), inset 0 0 6px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Carta Rara (3º Círculo) */
+.ritual-card-rare {
+  border: 1.5px solid rgba(226, 27, 35, 0.5);
+  background: radial-gradient(circle at 85% 15%, #131724 0%, #07080c 70%);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.95), 0 0 16px rgba(226, 27, 35, 0.2);
+}
+
+.ritual-card-rare::before {
+  content: '✦ RITUAL MAIOR';
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 900;
+  color: #e21b23;
+  letter-spacing: 0.1em;
+}
+
+/* Carta Proibida / Apocalíptica (4º Círculo) — Tamanho Expandido */
+.ritual-card-forbidden {
+  border: 2px solid #e21b23;
+  background: radial-gradient(circle at 50% 20%, #1f1013 0%, #06070a 80%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 1), 0 0 28px rgba(226, 27, 35, 0.35);
+}
+
+.ritual-card-forbidden::before {
+  content: '☠ CÓDICE PROIBIDO // APOCALÍPTICO';
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 900;
+  color: #ff333d;
+  letter-spacing: 0.15em;
+  animation: pulse 3s infinite;
+}
+
+/* Mancha de Tinta Vermelha / Marca de Sangue */
+.blood-ink-blot {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 38px;
+  height: 38px;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* Assinatura de Arquivista */
+.signature-italic {
+  font-family: 'Cinzel', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: #697285;
+}
+
+/* Visualização em Lista / Catálogo de Tomos */
+.arcane-list-row {
+  background: #07090d;
+  border: 1px solid #181d2a;
+  transition: all 0.2s ease;
+}
+
+.arcane-list-row:hover {
+  border-color: #e21b23;
+  background: #0f121a;
+  transform: translateX(3px);
+}
+
+/* ============================================================ */
+/* DOSSIÊ DE AGENTE — FICHA DE PERSONAGEM AAA                   */
+/* ============================================================ */
+
+/* Moldura de Retrato de Arquivo / Foto Grampeada */
+.dossier-photo-frame {
+  position: relative;
+  background: #080a0f;
+  border: 1px solid #232a3b;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), inset 0 0 25px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.dossier-photo-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.35) 60%, rgba(5, 7, 10, 0.95) 100%);
+  pointer-events: none;
+}
+
+/* Carimbo Confidencial de Arquivo */
+.confidential-stamp {
+  position: absolute;
+  top: 12px;
+  right: -10px;
+  transform: rotate(8deg);
+  border: 2px solid rgba(226, 27, 35, 0.75);
+  color: #ff333d;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  background: rgba(15, 5, 7, 0.85);
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.4);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Fita Adesiva de Fixação / Clip */
+.paper-clip-marker {
+  position: absolute;
+  top: -6px;
+  left: 24px;
+  width: 14px;
+  height: 28px;
+  border: 2px solid #5a6478;
+  border-radius: 8px 8px 0 0;
+  border-bottom: none;
+  background: transparent;
+  z-index: 12;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* Entradas de Texto Datilografadas do Dossiê */
+.dossier-typewriter-input {
+  background: #06070a;
+  border: 1px solid #232938;
+  color: #ffffff;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.dossier-typewriter-input:focus {
+  border-color: #e21b23;
+  outline: none;
+  box-shadow: 0 0 10px rgba(226, 27, 35, 0.35);
+  background: #0a0507;
+}
+
+.dossier-meta-select {
+  background: #08090d;
+  border: 1px solid #1f2535;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dossier-meta-select:focus {
+  border-color: #e21b23;
+  outline: none;
+  box-shadow: 0 0 8px rgba(226, 27, 35, 0.3);
+}
+
+/* Células Físicas Segmentadas de Pontos de Vida (PV) */
+.vital-meter-track {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  height: 10px;
+  background: #080a0f;
+  padding: 2px;
+  border: 1px solid #232938;
+}
+
+.vital-meter-cell {
+  flex: 1;
+  background: #141824;
+  transition: all 0.25s ease;
+}
+
+.vital-meter-cell.filled-pv {
+  background: #e21b23;
+  box-shadow: 0 0 8px rgba(226, 27, 35, 0.65);
+}
+
+.vital-meter-cell.filled-pe {
+  background: #06b6d4;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.65);
+}
+
+/* Botões Táteis Analógicos de Passo */
+.dossier-step-btn {
+  background: #0a0c12;
+  border: 1px solid #283144;
+  color: #c8cbd2;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.dossier-step-btn:hover {
+  border-color: #e21b23;
+  color: #ffffff;
+  background: #1c080b;
+  box-shadow: 0 0 8px rgba(226, 27, 35, 0.4);
+}
+
+.dossier-step-btn:active {
+  transform: scale(0.95);
+}
+
+/* Cartão de Perícia em Grupo */
+.dossier-skill-card {
+  position: relative;
+  background: #06080d;
+  border: 1px solid #1a202d;
+  transition: all 0.2s ease;
+}
+
+.dossier-skill-card:hover {
+  border-color: #384259;
+  transform: translateY(-1px);
+}
+
+.dossier-skill-card.is-trained {
+  border-color: #e21b23;
+  background: radial-gradient(circle at 85% 20%, #1a080a 0%, #07080d 70%);
+  box-shadow: 0 4px 15px rgba(226, 27, 35, 0.2);
+}
+
+.dossier-skill-card.is-trained::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: #e21b23;
+  box-shadow: 0 0 8px #e21b23;
+}
+
+/* Fita de Treinamento */
+.skill-trained-ribbon {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 1px 6px;
+  background: rgba(226, 27, 35, 0.2);
+  border: 1px solid rgba(226, 27, 35, 0.5);
+  color: #ff333d;
+}
+
+/* Cartas de Armas Horizontais de Inventário */
+.dossier-weapon-card {
+  position: relative;
+  background: linear-gradient(135deg, #090c13 0%, #050609 100%);
+  border: 1px solid #232a3b;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.85);
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.dossier-weapon-card:hover {
+  border-color: #e21b23;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.95), 0 0 20px rgba(226, 27, 35, 0.25);
+}
+
+.dossier-weapon-slot {
+  width: 58px;
+  height: 58px;
+  background: #040508;
+  border: 1px solid #1f2537;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9);
+}
+
+/* ============================================================ */
+/* RODA ORBITAL DE CARTAS DAS 10 EMOÇÕES (ESTILO INSCRIPTION)    */
+/* ============================================================ */
+
+.orbital-arena-container {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  height: 440px;
+  margin: 0 auto;
+  perspective: 1100px;
+  user-select: none;
+}
+
+/* O Abismo Central (Fosso do Avesso) */
+.orbital-abyss-chasm {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, #020305 0%, #080305 45%, #050609 80%);
+  border: 1.5px dashed rgba(226, 27, 35, 0.4);
+  box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), inset 0 0 45px rgba(226, 27, 35, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.orbital-abyss-chasm::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Cartão Físico da Emoção na Órbita (Inscryption Style) */
+.orbital-emotion-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 84px;
+  height: 108px;
+  background: #090b10;
+  border: 1.5px solid #283144;
+  border-radius: 2px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.65s ease,
+              filter 0.65s ease,
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+  will-change: transform, opacity;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.orbital-emotion-card:hover {
+  border-color: #cbd0dc;
+}
+
+/* Estado Ativo / Focado (Na Frente) */
+.orbital-emotion-card.active-focus {
+  border-color: #e21b23;
+  background: radial-gradient(circle at 50% 30%, #1c090c 0%, #080a0f 90%);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(226, 27, 35, 0.65);
+  z-index: 60 !important;
+}
+
+/* Cantoneiras Rúnicas Estilo Inscryption */
+.orbital-card-bracket {
+  position: absolute;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1;
+  color: #5a6478;
+  pointer-events: none;
+}
+
+.orbital-emotion-card.active-focus .orbital-card-bracket {
+  color: #ff333d;
+  filter: drop-shadow(0 0 3px #e21b23);
+}
+
+.bracket-tl { top: 1px; left: 2px; }
+.bracket-tr { top: 1px; right: 2px; }
+.bracket-bl { bottom: 1px; left: 2px; }
+.bracket-br { bottom: 1px; right: 2px; }
+
+/* Botões de Giro Manual */
+.orbital-spin-btn {
+  background: #080a0f;
+  border: 1px solid #252d3f;
+  color: #cbd0dc;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+/* Responsividade Mobile para Arena Orbital (< 640px) */
+@media (max-width: 640px) {
+  .orbital-arena-container {
+    height: 290px;
+    max-width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .orbital-abyss-chasm {
+    width: 195px;
+    height: 108px;
+    padding: 4px;
+  }
+
+  .orbital-abyss-chasm h4 {
+    font-size: 13px !important;
+  }
+
+  .orbital-abyss-chasm div {
+    font-size: 9.5px !important;
+  }
+
+  .orbital-emotion-card {
+    width: 60px;
+    height: 80px;
+    padding: 3px;
+  }
+
+  .orbital-emotion-card img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .orbital-emotion-card .orbital-card-bracket {
+    font-size: 8px;
+  }
+
+  .orbital-spin-btn {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+.orbital-spin-btn:hover {
+  border-color: #e21b23;
+  color: #ffffff;
+  background: #19090b;
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.4);
+}
+
+/* ============================================================ */
+/* A FORJA DO DESPERTO — ESTAÇÃO DE TRABALHO CAD PARANORMAL (AAA) */
+/* ============================================================ */
+
+.cad-workstation-container {
+  background-color: #05070c;
+  background-image: 
+    radial-gradient(rgba(226, 27, 35, 0.08) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px, 8px 8px;
+  background-position: 0 0, 16px 16px;
+  position: relative;
+}
+
+.cad-workstation-container::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  right: -50px;
+  width: 480px;
+  height: 480px;
+  border: 1px dashed rgba(226, 27, 35, 0.06);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: slowOccultSpin 180s linear infinite;
+}
+
+.cad-workstation-container::after {
+  content: '';
+  position: absolute;
+  top: 120px;
+  right: 30px;
+  width: 320px;
+  height: 320px;
+  border: 1px solid rgba(255, 255, 255, 0.025);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Superfícies & Painéis CAD */
+.cad-panel {
+  background: linear-gradient(180deg, rgba(13, 17, 26, 0.88) 0%, rgba(7, 10, 16, 0.94) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.65);
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cad-panel:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.cad-panel-accent {
+  border-top: 2px solid #e21b23;
+}
+
+/* Cantoneiras Técnicas CAD (+) */
+.cad-cross-tl, .cad-cross-tr, .cad-cross-bl, .cad-cross-br {
+  position: absolute;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(226, 27, 35, 0.4);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.cad-cross-tl { top: 4px; left: 6px; }
+.cad-cross-tr { top: 4px; right: 6px; }
+.cad-cross-bl { bottom: 4px; left: 6px; }
+.cad-cross-br { bottom: 4px; right: 6px; }
+
+/* Abas como Capítulos de Manual Técnico com Barra Inferior */
+.cad-chapter-tab {
+  position: relative;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.cad-chapter-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cad-chapter-tab:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cad-chapter-tab.active {
+  background: rgba(226, 27, 35, 0.03);
+}
+
+.cad-chapter-tab.active::after {
+  background: #e21b23;
+  box-shadow: 0 0 10px #e21b23, 0 0 20px rgba(226, 27, 35, 0.6);
+}
+
+/* Inputs, Selects & Textareas CAD */
+.cad-field-group {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.cad-control {
+  background: #06090f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.cad-control:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.cad-control:focus {
+  border-color: #e21b23;
+  outline: none;
+  box-shadow: inset 0 0 8px rgba(226, 27, 35, 0.15), 0 0 14px rgba(226, 27, 35, 0.25);
+  background: #090d15;
+}
+
+/* Segmented CAD Switcher */
+.cad-segmented-switch {
+  background: #04060a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.cad-segmented-btn {
+  background: transparent;
+  border: none;
+  color: #8e95a5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cad-segmented-btn:hover {
+  color: #ffffff;
+}
+
+.cad-segmented-btn.active {
+  background: #e21b23;
+  color: #050608;
+  box-shadow: 0 0 12px rgba(226, 27, 35, 0.4);
+}
+
+/* Barra de Medidor de Estatística Tática */
+.cad-stat-track {
+  height: 6px;
+  background: #040609;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.cad-stat-fill {
+  height: 100%;
+  background: #e21b23;
+  box-shadow: 0 0 8px rgba(226, 27, 35, 0.6);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cartão Tático de Inspeção Holográfica */
+.cad-preview-viewport {
+  background: #04060a;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.cad-reticle {
+  position: absolute;
+  inset: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.cad-reticle::before, .cad-reticle::after {
+  content: '';
+  position: absolute;
+  background: rgba(226, 27, 35, 0.3);
+}
+.cad-reticle::before {
+  top: 50%;
+  left: -6px;
+  right: -6px;
+  height: 1px;
+}
+.cad-reticle::after {
+  left: 50%;
+  top: -6px;
+  bottom: -6px;
+  width: 1px;
+}
+/* ============================================================ */
+/* DOSSIÊ TÁTICO MILITAR PARANORMAL DE ARQUÉTIPOS (AAA CODEX)   */
+/* Inspirado em Destiny 2, Control, Cyberpunk 2077 & Dead Space  */
+/* ============================================================ */
+
+@keyframes dossierReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-dossier-reveal {
+  animation: dossierReveal 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Título Monumental do Arquétipo */
+.dossier-hero-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.12), 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* Trilho Luminoso Ciano (Nível 1 - Despertar) */
+.beacon-cyan-rail {
+  position: relative;
+  border-left: 2px solid #06b6d4;
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.04) 0%, transparent 100%);
+}
+
+.beacon-cyan-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 2px;
+  height: 24px;
+  background: #22d3ee;
+  box-shadow: 0 0 12px #22d3ee;
+}
+
+/* Trilho Luminoso Carmesim (Nível 2 - Apoteose) */
+.beacon-red-rail {
+  position: relative;
+  border-left: 2px solid #e21b23;
+  background: linear-gradient(90deg, rgba(226, 27, 35, 0.05) 0%, transparent 100%);
+}
+
+.beacon-red-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 2px;
+  height: 24px;
+  background: #ff333d;
+  box-shadow: 0 0 14px #ff333d;
+}
+
+/* Módulo de Alerta Crítico Militar (Custo do Paroxismo - Dead Space / Control) */
+.paroxysm-hazard-banner {
+  position: relative;
+  background-color: #120305;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(226, 27, 35, 0.08),
+    rgba(226, 27, 35, 0.08) 12px,
+    transparent 12px,
+    transparent 24px
+  );
+  border: 1px solid rgba(226, 27, 35, 0.45);
+  box-shadow: inset 0 0 20px rgba(226, 27, 35, 0.15), 0 0 25px rgba(226, 27, 35, 0.15);
+  overflow: hidden;
+}
+
+.paroxysm-hazard-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ff333d, transparent);
+  animation: pulse 2s infinite ease-in-out;
+}
+
+/* Núcleo de Síntese Dual de Emoções (Catalisadores Centrais) */
+.catalyst-emblem-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #10141d 0%, #05070a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.3s ease;
+}
+
+.catalyst-emblem-container:hover {
+  transform: scale(1.05);
+}
+
+.catalyst-vector-line {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--e1-color, #06b6d4), rgba(255, 255, 255, 0.2), var(--e2-color, #e21b23));
+}
+
+.catalyst-vector-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  background: #050608;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #d1d5db;
+  white-space: nowrap;
+}
+
+/* Divisor Tecnológico Ultrafino */
+.tactical-tech-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08) 20%, rgba(255, 255, 255, 0.08) 80%, transparent);
+}
+
+/* Grid Técnico Discreto de Fundo */
+.tactical-grid-bg {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+}
+

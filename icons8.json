@@ -1,0 +1,62 @@
+{
+  "pack": "ios7",
+  "size": 32,
+  "icons": {
+    "anvil": {
+      "id": "122925",
+      "commonName": "hammer-and-anvil"
+    },
+    "hammer": {
+      "id": "1208",
+      "commonName": "hammer"
+    },
+    "sword": {
+      "id": "5336",
+      "commonName": "sword"
+    },
+    "scroll": {
+      "id": "16715",
+      "commonName": "magical-scroll"
+    },
+    "badge": {
+      "id": "63384",
+      "commonName": "security-pass"
+    },
+    "gear": {
+      "id": "53375",
+      "commonName": "gear"
+    },
+    "book": {
+      "id": "42763",
+      "commonName": "book"
+    },
+    "save": {
+      "id": "18765",
+      "commonName": "save"
+    },
+    "bolt": {
+      "id": "6703",
+      "commonName": "lightning-bolt"
+    },
+    "download": {
+      "id": "366",
+      "commonName": "download"
+    },
+    "print": {
+      "id": "123",
+      "commonName": "print"
+    },
+    "copy": {
+      "id": "30",
+      "commonName": "copy"
+    },
+    "skull": {
+      "id": "4009",
+      "commonName": "skull"
+    },
+    "dice": {
+      "id": "6569",
+      "commonName": "dice"
+    }
+  }
+}
