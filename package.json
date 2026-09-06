@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npx serve . -p 8080",
-    "start": "npx serve . -p 8080",
-    "build": "node -e \"console.log('Build OK: Static files ready')\""
+    "start": "npx serve . -p 8080"
   },
   "keywords": [
     "rpg",
