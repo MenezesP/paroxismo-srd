@@ -28,6 +28,7 @@ export class DiceAnimator {
   static scene = null;
   static camera = null;
   static world = null;
+  static walls = [];
   static activeDice = [];
   static isLoopRunning = false;
   static animFrameId = null;
@@ -57,6 +58,7 @@ export class DiceAnimator {
 
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const isMobile = width < 768;
 
     // 2. Renderizador Three.js
     this.renderer = new THREE.WebGLRenderer({
@@ -76,7 +78,12 @@ export class DiceAnimator {
 
     const fov = 42;
     this.camera = new THREE.PerspectiveCamera(fov, width / height, 1, 2500);
-    this.camera.position.set(0, 220, 160);
+    if (isMobile) {
+      // No celular em pé (portrait), afasta e eleva a câmera para ter visão completa da mesa
+      this.camera.position.set(0, 320, 220);
+    } else {
+      this.camera.position.set(0, 220, 160);
+    }
     this.camera.lookAt(0, 10, 0);
     this.scene.add(this.camera);
 
@@ -145,41 +152,71 @@ export class DiceAnimator {
    */
   static buildBoundaryWalls() {
     const CANNON = window.CANNON;
-    const boundX = 140;
-    const boundZ = 95;
+    if (!this.world) return;
+
+    // Remove paredes antigas caso seja uma reconstrução de resize
+    if (this.walls && this.walls.length > 0) {
+      this.walls.forEach(w => {
+        try { this.world.remove(w); } catch (e) {}
+      });
+      this.walls = [];
+    }
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isMobile = width < 768;
+    const aspect = width / height;
+
+    // No celular, as paredes laterais devem ser bem mais próximas do centro para o dado nunca sair da tela
+    const boundX = isMobile ? Math.max(34, Math.round(50 * Math.min(1, aspect / 0.5))) : 140;
+    const boundZ = isMobile ? 120 : 95;
 
     // Parede Esquerda
     const wallL = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
     wallL.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
     wallL.position.set(-boundX, 0, 0);
     this.world.addBody(wallL);
+    this.walls.push(wallL);
 
     // Parede Direita
     const wallR = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
     wallR.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
     wallR.position.set(boundX, 0, 0);
     this.world.addBody(wallR);
+    this.walls.push(wallR);
 
     // Parede Superior (Fundo)
     const wallTop = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
     wallTop.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), 0);
     wallTop.position.set(0, 0, -boundZ);
     this.world.addBody(wallTop);
+    this.walls.push(wallTop);
 
     // Parede Inferior (Frente)
     const wallBottom = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
     wallBottom.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI);
     wallBottom.position.set(0, 0, boundZ);
     this.world.addBody(wallBottom);
+    this.walls.push(wallBottom);
   }
 
   static handleResize() {
     if (!this.initialized) return;
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const isMobile = width < 768;
+
     this.camera.aspect = width / height;
+    if (isMobile) {
+      this.camera.position.set(0, 320, 220);
+    } else {
+      this.camera.position.set(0, 220, 160);
+    }
+    this.camera.lookAt(0, 10, 0);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+
+    this.buildBoundaryWalls();
   }
 
   /**
@@ -215,9 +252,12 @@ export class DiceAnimator {
       labelBadge.innerHTML = `<span>[ ${label.toUpperCase()} ]</span>`;
       document.body.appendChild(labelBadge);
 
-      // Cores Litúrgicas do PAROXISMO (Obsidiana e Carmesim; 20 e 1 já gravados nativamente nas faces)
+      const isMobile = window.innerWidth < 768;
+
+      // Cores Litúrgicas do PAROXISMO (Tamanho proporcional em telas mobile)
+      const baseSize = sides === 20 ? 32 : sides === 6 ? 28 : sides === 8 ? 30 : sides === 12 ? 30 : 28;
       const diceOptions = {
-        size: sides === 20 ? 32 : sides === 6 ? 28 : sides === 8 ? 30 : sides === 12 ? 30 : 28,
+        size: isMobile ? Math.round(baseSize * 0.78) : baseSize,
         backColor: '#0b0f19',
         fontColor: '#ff333d'
       };
@@ -250,11 +290,13 @@ export class DiceAnimator {
       const dieMesh = dieInstance.getObject();
       this.scene.add(dieMesh);
 
-      // Posição inicial de lançamento (vindo do alto com ângulo e rotação randômica)
+      // Posição inicial de lançamento (adaptada para telas móveis para o dado nunca sair da tela)
       const spawnSide = Math.random() > 0.5 ? 1 : -1;
-      const startX = spawnSide * (70 + Math.random() * 40);
-      const startY = 130 + Math.random() * 30;
-      const startZ = 30 + Math.random() * 40;
+      const startX = isMobile 
+        ? spawnSide * (12 + Math.random() * 16)
+        : spawnSide * (70 + Math.random() * 40);
+      const startY = isMobile ? (150 + Math.random() * 20) : (130 + Math.random() * 30);
+      const startZ = isMobile ? (15 + Math.random() * 25) : (30 + Math.random() * 40);
 
       dieMesh.position.set(startX, startY, startZ);
       dieMesh.quaternion.set(
@@ -266,11 +308,12 @@ export class DiceAnimator {
 
       dieInstance.updateBodyFromMesh();
 
-      // Forças físicas de arremesso (Impulso linear em direção ao centro da mesa + torque angular violento)
+      // Forças físicas de arremesso (Impulso linear contido em direção ao centro da mesa)
+      const forceMult = isMobile ? 1.15 : 1.5;
       dieMesh.body.velocity.set(
-        -startX * (1.5 + Math.random() * 0.5),
+        -startX * (forceMult + Math.random() * 0.3),
         -90 - Math.random() * 30,
-        -startZ * (1.5 + Math.random() * 0.5)
+        -startZ * (forceMult + Math.random() * 0.3)
       );
 
       dieMesh.body.angularVelocity.set(

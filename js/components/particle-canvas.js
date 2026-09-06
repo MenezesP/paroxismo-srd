@@ -9,8 +9,9 @@ export class AtmosphericCanvas {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
+    this.isMobile = window.innerWidth < 1024;
     this.particles = [];
-    this.maxParticles = 38;
+    this.maxParticles = this.isMobile ? 12 : 38;
     this.animationFrameId = null;
     this.isRunning = false;
 
@@ -22,7 +23,11 @@ export class AtmosphericCanvas {
     let resizeTimeout = null;
     window.addEventListener('resize', () => {
       if (resizeTimeout) clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => this.resize(), 120);
+      resizeTimeout = setTimeout(() => {
+        this.isMobile = window.innerWidth < 1024;
+        this.maxParticles = this.isMobile ? 12 : 38;
+        this.resize();
+      }, 120);
     });
 
     // Cria as partículas iniciais
@@ -37,6 +42,19 @@ export class AtmosphericCanvas {
         this.start();
       }
     });
+
+    // No celular, pausa o canvas durante o gesto de scroll para dar 100% de fluidez à rolagem do DOM
+    let scrollPauseTimer = null;
+    window.addEventListener('scroll', () => {
+      if (!this.isMobile) return;
+      if (this.isRunning) {
+        this.stop();
+      }
+      if (scrollPauseTimer) clearTimeout(scrollPauseTimer);
+      scrollPauseTimer = setTimeout(() => {
+        if (!document.hidden) this.start();
+      }, 160);
+    }, { passive: true });
 
     this.start();
   }
@@ -116,8 +134,12 @@ export class AtmosphericCanvas {
 
       if (p.isEmber) {
         this.ctx.fillStyle = `rgba(226, 27, 35, ${Math.max(0, p.alpha)})`;
-        this.ctx.shadowBlur = 10;
-        this.ctx.shadowColor = '#e21b23';
+        if (this.isMobile) {
+          this.ctx.shadowBlur = 0;
+        } else {
+          this.ctx.shadowBlur = 8;
+          this.ctx.shadowColor = '#e21b23';
+        }
       } else {
         this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, p.alpha * 0.45)})`;
         this.ctx.shadowBlur = 0;

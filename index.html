@@ -6,6 +6,10 @@
   <title>PAROXISMO — Compêndio Oficial SRD (Sistema d20)</title>
   <meta name="description" content="Experiência de Interface de RPG Dark Fantasy AAA — PAROXISMO d20." />
   
+  <!-- Favicon Oficial Paroxismo -->
+  <link rel="icon" type="image/png" href="assets/images/paroxismo_logo_tight.png" />
+  <link rel="apple-touch-icon" href="assets/images/paroxismo_logo_tight.png" />
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -26,7 +30,7 @@
   </script>
 
   <!-- Google Fonts & Custom Occult Stylesheets -->
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_optimized_v1" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_v4" />
   <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
 </head>
 <body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative overflow-x-hidden">
@@ -35,6 +39,7 @@
   <!-- CENOGRAFIA ATMOSFÉRICA DE FUNDO (Z-0, Z-1, Z-2) -->
   <!-- ============================================================ -->
   <canvas id="particle-canvas"></canvas>
+  <canvas id="paroxismo-3d-dice-canvas"></canvas>
 
   <!-- Sigilo Monumental Astral com Rotação Imperceptível -->
   <div class="astral-sigil-bg" aria-hidden="true">
@@ -205,6 +210,6 @@
   <script src="js/vendor/cannon.min.js"></script>
 
   <!-- Script Principal SPA -->
-  <script type="module" src="js/app.js?v=perf_v2"></script>
+  <script type="module" src="js/app.js?v=mobile_v4"></script>
 </body>
 </html>

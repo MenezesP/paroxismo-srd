@@ -73,6 +73,17 @@ h1, h2, h3, h4, h5, .font-serif {
   opacity: 0.85;
 }
 
+/* Canvas WebGL 3D do Rolador de Dados Físico (Z-Index 9990 para sobrepor gavetas) */
+#paroxismo-3d-dice-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9990 !important;
+  user-select: none;
+}
+
 /* Sigilo Monumental de Fundo com Rotação Imperceptível */
 .astral-sigil-bg {
   position: fixed;
@@ -335,6 +346,30 @@ h1, h2, h3, h4, h5, .font-serif {
     right: -80px;
     top: 18px;
   }
+
+  /* ============================================================ */
+  /* OTIMIZAÇÃO DE PERFORMANCE MOBILE DE ALTO IMPACTO             */
+  /* Elimina engasgos de GPU, composite lag e delay de scroll     */
+  /* ============================================================ */
+  .film-grain-overlay,
+  .astral-sigil-bg,
+  .colossal-occult-watermark {
+    display: none !important;
+  }
+
+  .nadir-game-viewport {
+    margin: 4px 2px !important;
+    padding: 14px 10px !important;
+    box-shadow: none !important;
+    background: #070707 !important;
+  }
+
+  /* Desativa desfoques pesados de backdrop em elementos do DOM no mobile */
+  .backdrop-blur-md,
+  .backdrop-blur-sm {
+    backdrop-filter: none !important;
+    background-color: rgba(7, 9, 14, 0.96) !important;
+  }
 }
 
 /* Em Desktop (>= 1024px), GARANTE QUE O BOTÃO NUNCA APARECE */
@@ -342,6 +377,26 @@ h1, h2, h3, h4, h5, .font-serif {
   .rotary-drawer-toggle-btn {
     display: none !important;
   }
+}
+
+/* ============================================================ */
+/* RENDERIZAÇÃO INTELIGENTE DE CONTEÚDO (CONTENT-VISIBILITY)     */
+/* Evita que nós fora da tela consumam CPU/GPU na rolagem móvel */
+/* ============================================================ */
+.fusion-card-item,
+.ritual-grimoire-card,
+.arcane-list-row,
+.archetype-card-item,
+.atlas-origin-card,
+.rules-chapter-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 120px;
+}
+
+#main-content {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: auto;
 }
 
 /* Animação suave de transição de conteúdo (elimina sensação de travada) */
