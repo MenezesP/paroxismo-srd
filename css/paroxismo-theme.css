@@ -2941,3 +2941,107 @@ h1, h2, h3, h4, h5, .font-serif {
     linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
 }
 
+/* ============================================================ */
+/* ADAPTAÇÕES ULTRA-COMPACTAS PARA DISCORD ACTIVITY & MOBILE     */
+/* ============================================================ */
+
+/* 1. O botão de menu gaveta deve ser visível no Discord e telas < 1360px */
+body.discord-activity-mode #rotary-drawer-toggle-wrapper,
+@media (max-width: 1359px) {
+  #rotary-drawer-toggle-wrapper {
+    display: flex !important;
+  }
+}
+
+/* 2. O espaçador vazio de 240px deve desaparecer no Discord e telas < 1360px */
+body.discord-activity-mode #rotary-desktop-spacer,
+@media (max-width: 1359px) {
+  #rotary-desktop-spacer {
+    display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+/* 3. A Roda de Opções nunca pode sobrepor o conteúdo permanentemente */
+body.discord-activity-mode .rotary-wheel-system,
+@media (max-width: 1359px) {
+  .rotary-wheel-system {
+    left: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 9999 !important;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
+  }
+
+  .rotary-wheel-system.collapsed {
+    transform: translateY(-50%) translateX(-180%) !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    display: none !important;
+  }
+
+  .rotary-wheel-system:not(.collapsed) {
+    transform: translateY(-50%) translateX(10px) !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
+    background: rgba(7, 9, 14, 0.97) !important;
+    border: 1px solid rgba(226, 27, 35, 0.6) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
+    backdrop-filter: blur(16px) !important;
+  }
+}
+
+/* 4. Em telas com altura baixa (ex: 475px do Discord), escala a roda para caber sem cortar */
+@media (max-height: 650px) {
+  .rotary-wheel-system:not(.collapsed) {
+    transform: translateY(-50%) translateX(10px) scale(0.76) !important;
+    transform-origin: left center !important;
+  }
+  .rotary-wheel-system.collapsed {
+    transform: translateY(-50%) translateX(-180%) scale(0.76) !important;
+  }
+}
+
+/* 5. Viewport do Jogo em Modo Discord: padding superior para a barra de topo não cobrir títulos */
+body.discord-activity-mode {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+body.discord-activity-mode .nadir-game-viewport {
+  margin: 4px !important;
+  padding: 54px 12px 14px 12px !important;
+  min-height: calc(100vh - 8px) !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+body.discord-activity-mode #main-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+/* 6. Barra do Mestre compacta no Discord para não roubar metade da tela */
+body.discord-activity-mode #gm-active-banner {
+  font-size: 9px !important;
+  padding: 4px 8px !important;
+  margin-top: 4px !important;
+  margin-bottom: 8px !important;
+}
+
+/* 7. Dossiê (Ficha de Personagem) no Discord: layout fluído e adaptável */
+body.discord-activity-mode .dossier-photo-frame {
+  max-width: 220px !important;
+}
+
+

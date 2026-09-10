@@ -29,7 +29,7 @@
     }
   </script>
 
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=mobile_v7" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=discord_v2" />
   <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
 </head>
 <body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative">
@@ -61,9 +61,9 @@
   <div id="rotary-backdrop" class="rotary-backdrop" aria-hidden="true"></div>
 
   <!-- ============================================================ -->
-  <!-- BOTÃO FLUTUANTE DE MENU NO CELULAR (SUPERIOR ESQUERDO)       -->
+  <!-- BOTÃO FLUTUANTE DE MENU (SUPERIOR ESQUERDO)                  -->
   <!-- ============================================================ -->
-  <div class="fixed top-3 left-3 sm:top-4 sm:left-6 z-50 lg:hidden print:hidden">
+  <div id="rotary-drawer-toggle-wrapper" class="fixed top-3 left-3 sm:top-4 sm:left-6 z-50 lg:hidden print:hidden">
     <button id="rotary-drawer-toggle-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/95 hover:bg-[#121622] text-[#cbd0dc] hover:text-[#e21b23] border border-[#e21b23]/70 backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_0_15px_rgba(226,27,35,0.4)] cursor-pointer" title="Recolher / Expandir Menu de Rodas" aria-label="Menu de Navegação">
       <span class="text-[#e21b23] font-black" id="rotary-drawer-badge">00</span>
       <span class="font-serif font-bold text-white tracking-widest text-[10px]" id="rotary-drawer-label">MENU</span>
@@ -128,8 +128,8 @@
     <!-- ============================================================ -->
     <div class="flex-1 flex flex-col lg:flex-row gap-6 my-2">
       
-      <!-- Espaço reservado para o menu fixo não sobrepor o conteúdo (Apenas Desktop) -->
-      <div class="hidden lg:block w-[240px] flex-shrink-0 pointer-events-none" aria-hidden="true"></div>
+      <!-- Espaço reservado para o menu fixo não sobrepor o conteúdo (Apenas Desktop Largo) -->
+      <div id="rotary-desktop-spacer" class="hidden xl:block w-[240px] flex-shrink-0 pointer-events-none" aria-hidden="true"></div>
 
       <!-- PALCO DE CONTEÚDO PRINCIPAL (RENDERIZADO PELO APP.JS) -->
       <main id="main-content" class="flex-1 min-w-0">
@@ -213,6 +213,6 @@
   <script src="js/vendor/cannon.min.js"></script>
 
   <!-- Script Principal SPA -->
-  <script type="module" src="js/app.js?v=mobile_v4"></script>
+  <script type="module" src="js/app.js?v=discord_v2"></script>
 </body>
 </html>

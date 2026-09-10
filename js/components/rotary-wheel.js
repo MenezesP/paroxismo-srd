@@ -24,8 +24,8 @@ export class RotaryWheel {
     this.drawerLabel = document.getElementById('rotary-drawer-label');
     this.drawerArrow = document.getElementById('rotary-drawer-arrow');
     
-    // No celular (< 1024px) inicia recolhido para não tampar a visão
-    this.isCollapsed = window.innerWidth < 1024;
+    // No Discord ou em telas menores / compactas, inicia SEMPRE recolhido
+    this.isCollapsed = this.isCompactMode();
 
     this.baseItems = [
       { id: 'home', num: '00', label: 'CÓDICE' },
@@ -68,6 +68,13 @@ export class RotaryWheel {
     this.setupEventListeners();
   }
 
+  isCompactMode() {
+    return window.PAROXISMO_IS_DISCORD ||
+           document.body?.classList.contains('discord-activity-mode') ||
+           window.innerWidth < 1360 ||
+           window.innerHeight < 720;
+  }
+
   toggleDrawer(forceClose = null) {
     if (forceClose !== null) {
       this.isCollapsed = forceClose;
@@ -79,7 +86,7 @@ export class RotaryWheel {
   }
 
   applyDrawerState() {
-    if (window.innerWidth >= 1024) {
+    if (!this.isCompactMode()) {
       this.container?.classList.remove('collapsed');
       this.backdrop?.classList.remove('active');
       return;
@@ -150,11 +157,12 @@ export class RotaryWheel {
 
     // Ajuste ao redimensionar tela
     window.addEventListener('resize', () => {
-      const isMobile = window.innerWidth < 1024;
-      if (!isMobile && this.isCollapsed) {
+      if (!this.isCompactMode() && this.isCollapsed) {
         this.isCollapsed = false;
-        this.applyDrawerState();
+      } else if (this.isCompactMode() && !this.isCollapsed && !this.backdrop?.classList.contains('active')) {
+        this.isCollapsed = true;
       }
+      this.applyDrawerState();
     });
 
     // Botões de rotação
@@ -265,8 +273,8 @@ export class RotaryWheel {
       }
     }
 
-    // Se estiver no celular (< 1024px), fecha a gaveta automaticamente após selecionar a opção
-    if (window.innerWidth < 1024) {
+    // Se estiver em modo compacto ou no Discord, fecha a gaveta automaticamente após selecionar a opção
+    if (this.isCompactMode()) {
       setTimeout(() => {
         this.toggleDrawer(true);
       }, 150);

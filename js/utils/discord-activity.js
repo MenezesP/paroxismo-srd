@@ -26,6 +26,8 @@ export class DiscordActivity {
     }
 
     console.log('[Discord Activity] Ambiente Discord Activity detectado!');
+    document.documentElement.classList.add('discord-activity-mode');
+    document.body.classList.add('discord-activity-mode');
 
     // Identifica o Client ID da aplicação
     let clientId = this.params.get('client_id');
@@ -33,7 +35,7 @@ export class DiscordActivity {
       clientId = window.location.hostname.split('.')[0];
     }
     if (!clientId) {
-      clientId = window.PAROXISMO_DISCORD_CLIENT_ID || '1348508498877546517';
+      clientId = window.PAROXISMO_DISCORD_CLIENT_ID || '1547469610616623174';
     }
 
     try {
