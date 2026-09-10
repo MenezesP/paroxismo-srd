@@ -24,8 +24,8 @@ export class RotaryWheel {
     this.drawerLabel = document.getElementById('rotary-drawer-label');
     this.drawerArrow = document.getElementById('rotary-drawer-arrow');
     
-    // Inicia SEMPRE recolhido para não sobrepor o conteúdo da tela
-    this.isCollapsed = true;
+    // Inicia visível normalmente como antes, com a opção de esconder
+    this.isCollapsed = false;
 
     this.baseItems = [
       { id: 'home', num: '00', label: 'CÓDICE' },
@@ -69,7 +69,7 @@ export class RotaryWheel {
   }
 
   isCompactMode() {
-    return true; // Todos os formatos agora usam a gaveta lateral retrátil limpa
+    return false;
   }
 
   toggleDrawer(forceClose = null) {
@@ -86,14 +86,12 @@ export class RotaryWheel {
     if (this.isCollapsed) {
       this.container?.classList.add('collapsed');
       document.body?.classList.add('rotary-is-collapsed');
-      this.backdrop?.classList.remove('active');
       if (this.drawerLabel) this.drawerLabel.textContent = 'MENU';
       if (this.drawerArrow) this.drawerArrow.textContent = '❯';
       if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Mostrar Menu de Opções (M)';
     } else {
       this.container?.classList.remove('collapsed');
       document.body?.classList.remove('rotary-is-collapsed');
-      this.backdrop?.classList.add('active');
       if (this.drawerLabel) this.drawerLabel.textContent = 'ESCONDER';
       if (this.drawerArrow) this.drawerArrow.textContent = '❮';
       if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Esconder Menu de Opções (M)';
@@ -277,12 +275,7 @@ export class RotaryWheel {
       }
     }
 
-    // Se estiver em modo compacto ou no Discord, fecha a gaveta automaticamente após selecionar a opção
-    if (this.isCompactMode()) {
-      setTimeout(() => {
-        this.toggleDrawer(true);
-      }, 150);
-    }
+    // O menu permanece aberto conforme navega, fechando apenas sob comando do usuário
   }
 
   setActiveTab(tabId, triggerCallback = false) {

@@ -774,7 +774,11 @@ export class CharacterSheet {
                       const isTrained = char.trainedSkills.includes(skill.id);
                       const baseAttr = skill.attr.toLowerCase().split('/')[0].trim();
                       const attrMod = char.attributes[baseAttr] || 0;
-                      const totalBonus = isTrained ? (attrMod + stats.trainingBonusVal) : 0;
+                      // Regra Oficial Paroxismo: Teste = 1d20 + Atributo Base + Bônus de Treinamento (Seção 2.1)
+                      // Se Não Treinado: Bônus de Treino = +0 (Rola 1d20 + Atributo, Seção 2.4)
+                      // Se Treinado: Bônus de Treino = +stats.trainingBonusVal (+2 nos Níveis 1 a 4)
+                      const trainingBonusNum = isTrained ? stats.trainingBonusVal : 0;
+                      const totalBonus = attrMod + trainingBonusNum;
                       const signBonus = totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`;
 
                       return `
@@ -787,7 +791,7 @@ export class CharacterSheet {
                                 <input type="checkbox" class="skill-check w-4 h-4 rounded bg-[#040508] border border-[#2e374d] text-[#e21b23] focus:ring-0 cursor-pointer"
                                        data-skill="${skill.id}" ${isTrained ? 'checked' : ''} />
                                 <span class="text-xs font-serif font-black ${isTrained ? 'text-white' : 'text-[#c8cbd2]'}">
-                                  ${skill.name}
+                                   ${skill.name}
                                 </span>
                               </label>
                               <span class="text-[9px] font-mono text-[#8e95a5] uppercase">
@@ -795,20 +799,29 @@ export class CharacterSheet {
                               </span>
                             </div>
 
-                            <!-- Código e Fita de Treino -->
-                            <div class="flex items-center justify-between text-[9px] font-mono mb-3">
+                            <!-- Código e Fita de Treino com Bônus Explícito -->
+                            <div class="flex items-center justify-between text-[9px] font-mono mb-2">
                               <span class="text-[#64748b]">${skill.code}</span>
                               ${isTrained ? `
-                                <span class="skill-trained-ribbon">[ TREINADO ]</span>
+                                <span class="skill-trained-ribbon">[ TREINADO +${stats.trainingBonusVal} ]</span>
                               ` : `
-                                <span class="text-[#475569]">[ LEIGO ]</span>
+                                <span class="text-[#475569]">[ LEIGO +0 ]</span>
                               `}
+                            </div>
+
+                            <!-- Decomposição Matemática Clara (Atributo + Treino) -->
+                            <div class="flex items-center justify-between text-[8px] font-mono px-1.5 py-1 bg-[#040508] border border-[#161a24] text-[#8e95a5] mb-2">
+                              <span>${skill.attr}: <strong class="text-white">${attrMod >= 0 ? '+' + attrMod : attrMod}</strong></span>
+                              <span>TREINO: <strong class="${isTrained ? 'text-[#e21b23]' : 'text-[#64748b]'}">${isTrained ? '+' + stats.trainingBonusVal : '+0'}</strong></span>
                             </div>
                           </div>
 
-                          <!-- Gatilho de Rolagem d20 -->
+                          <!-- Gatilho de Rolagem d20 com Total do Teste -->
                           <div class="pt-2 border-t border-[#161a24] flex items-center justify-between">
-                            <span class="text-[9px] font-mono text-[#8e95a5]">MODIFICADOR</span>
+                            <div>
+                              <span class="text-[8px] font-mono text-[#8e95a5] block leading-tight">TOTAL DO TESTE</span>
+                              <span class="text-[7px] font-mono text-[#64748b]">1d20 + ${totalBonus}</span>
+                            </div>
                             <button class="roll-btn px-2.5 py-1 bg-[#0b0e16] hover:bg-[#e21b23] hover:text-black border ${isTrained ? 'border-[#e21b23] text-[#ff333d]' : 'border-[#242b3a] text-white'} text-xs font-mono font-black transition-colors flex items-center gap-1.5 cursor-pointer"
                                     data-sides="20" data-bonus="${totalBonus}" data-label="Teste de ${skill.name}">
                               <img src="${isTrained ? ICONS8_SHEET.diceRed : ICONS8_SHEET.diceWhite}" class="w-3 h-3 object-contain" alt="" />

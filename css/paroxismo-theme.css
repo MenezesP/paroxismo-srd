@@ -229,20 +229,15 @@ h1, h2, h3, h4, h5, .font-serif {
 /* BACKDROP ESCURO PARA MENU DE RODAS NO CELULAR                */
 /* ============================================================ */
 .rotary-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 45;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }
 
 .rotary-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }
 
 /* ============================================================ */
@@ -263,7 +258,7 @@ h1, h2, h3, h4, h5, .font-serif {
   cursor: grab;
   border-right: none;
   z-index: 50;
-  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), left 0.3s ease;
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
   will-change: transform;
 }
 
@@ -280,7 +275,7 @@ h1, h2, h3, h4, h5, .font-serif {
   display: flex !important;
 }
 
-/* Estado Recolhido Global: Totalmente Oculto sem Ocupar Espaço nem Bloquear Conteúdo */
+/* Estado Recolhido: Totalmente Oculto sem Ocupar Espaço */
 .rotary-wheel-system.collapsed {
   transform: translateY(-50%) translateX(-250%) !important;
   pointer-events: none !important;
@@ -294,19 +289,18 @@ h1, h2, h3, h4, h5, .font-serif {
   display: none !important;
 }
 
-/* Quando aberto, exibe como gaveta flutuante elegante sobre o backdrop */
+/* Quando visível: aparece normal e limpo, sem blur nem fundo cobrindo o site */
 .rotary-wheel-system:not(.collapsed) {
-  transform: translateY(-50%) translateX(10px) !important;
+  transform: translateY(-50%) translateX(0) !important;
   pointer-events: auto !important;
   visibility: visible !important;
   opacity: 1 !important;
   display: block !important;
-  background: rgba(7, 9, 14, 0.98) !important;
-  border: 1px solid rgba(226, 27, 35, 0.6) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
-  backdrop-filter: blur(16px) !important;
-  z-index: 9999 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* O espaçador vazio não deve roubar espaço útil do conteúdo */
@@ -3057,11 +3051,11 @@ body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
   visibility: visible !important;
   opacity: 1 !important;
   display: block !important;
-  background: rgba(7, 9, 14, 0.97) !important;
-  border: 1px solid rgba(226, 27, 35, 0.6) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
-  backdrop-filter: blur(16px) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @media (max-width: 1359px) {
@@ -3087,11 +3081,11 @@ body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
     visibility: visible !important;
     opacity: 1 !important;
     display: block !important;
-    background: rgba(7, 9, 14, 0.97) !important;
-    border: 1px solid rgba(226, 27, 35, 0.6) !important;
-    border-radius: 4px !important;
-    box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
-    backdrop-filter: blur(16px) !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 

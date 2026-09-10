@@ -784,7 +784,8 @@ export class SheetImageGenerator {
         const isTrained = char.trainedSkills.includes(skill.id);
         const baseAttr = skill.attr.toLowerCase().split('/')[0].trim();
         const attrMod = char.attributes[baseAttr] || 0;
-        const totalBonus = isTrained ? (attrMod + stats.trainingBonusVal) : 0;
+        const trainingBonusNum = isTrained ? stats.trainingBonusVal : 0;
+        const totalBonus = attrMod + trainingBonusNum;
         const signBonus = totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`;
 
         // Marcador Checkbox Stencil
