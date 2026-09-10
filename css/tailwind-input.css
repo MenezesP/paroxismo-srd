@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@source "../index.html";
+@source "../js/**/*.js";
+
+@theme {
+  --color-void: #050505;
+  --color-abyss: #0a0a0a;
+  --color-blood: #e21b23;
+  --color-iron: #161616;
+  --color-steel: #8e95a5;
+}

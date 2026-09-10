@@ -10,26 +10,10 @@
   <link rel="icon" type="image/png" href="assets/images/paroxismo_logo_tight.png" />
   <link rel="apple-touch-icon" href="assets/images/paroxismo_logo_tight.png" />
   
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            void: '#050505',
-            abyss: '#0a0a0a',
-            blood: '#e21b23',
-            iron: '#161616',
-            steel: '#8e95a5'
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Tailwind CSS Compilado Estático (Seguro para Discord Activity, sem eval) -->
+  <link rel="stylesheet" href="css/tailwind.min.css?v=build_v2" />
 
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=discord_v2" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=discord_v3" />
   <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
 </head>
 <body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative">

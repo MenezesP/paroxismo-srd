@@ -15,5 +15,9 @@
     "dark-fantasy"
   ],
   "author": "Paroxismo",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
 }

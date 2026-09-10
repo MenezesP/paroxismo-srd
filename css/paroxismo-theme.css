@@ -31,6 +31,28 @@
   box-sizing: border-box;
 }
 
+.hidden, [hidden] {
+  display: none !important;
+}
+
+#gm-auth-modal.hidden,
+#command-palette-modal.hidden {
+  display: none !important;
+}
+
+#dice-drawer {
+  position: fixed !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  z-index: 9999 !important;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#dice-drawer.translate-x-full {
+  transform: translateX(100%) !important;
+}
+
 html, body {
   background-color: var(--void-black) !important;
   color: var(--bone-white) !important;

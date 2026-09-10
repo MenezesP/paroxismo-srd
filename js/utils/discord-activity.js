@@ -115,12 +115,12 @@ export class DiscordActivity {
 
     const badge = document.createElement('div');
     badge.id = 'discord-activity-hud-badge';
-    badge.className = 'fixed top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-[#07090e]/95 border border-[#5865F2]/70 px-3 py-1.5 backdrop-blur-md shadow-[0_0_20px_rgba(88,101,242,0.4)] text-xs font-mono select-none pointer-events-auto rounded-none';
+    badge.style.cssText = 'position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9990; display: flex; align-items: center; gap: 8px; background: rgba(7,9,14,0.95); border: 1px solid rgba(88,101,242,0.7); padding: 4px 10px; font-family: monospace; font-size: 11px; white-space: nowrap; box-shadow: 0 0 15px rgba(88,101,242,0.4);';
 
     badge.innerHTML = `
-      <img src="${this.getAvatarUrl()}" class="w-4 h-4 rounded-full border border-[#5865F2]" />
-      <span class="text-white font-bold tracking-wider">${this.user.global_name || this.user.username}</span>
-      <span class="text-[#5865F2] text-[10px] font-black tracking-widest">[ 🎮 DISCORD ATIVO ]</span>
+      <img src="${this.getAvatarUrl()}" style="width: 18px; height: 18px; min-width: 18px; max-width: 18px; max-height: 18px; border-radius: 9999px; object-fit: cover; border: 1px solid #5865F2;" />
+      <span style="color: #ffffff; font-weight: bold;">${this.user.global_name || this.user.username}</span>
+      <span style="color: #5865F2; font-size: 9px; font-weight: 900; letter-spacing: 0.1em;">[ 🎮 DISCORD ATIVO ]</span>
     `;
 
     document.body.appendChild(badge);
