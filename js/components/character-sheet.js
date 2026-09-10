@@ -774,7 +774,7 @@ export class CharacterSheet {
                       const isTrained = char.trainedSkills.includes(skill.id);
                       const baseAttr = skill.attr.toLowerCase().split('/')[0].trim();
                       const attrMod = char.attributes[baseAttr] || 0;
-                      const totalBonus = attrMod + (isTrained ? stats.trainingBonusVal : 0);
+                      const totalBonus = isTrained ? (attrMod + stats.trainingBonusVal) : 0;
                       const signBonus = totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`;
 
                       return `

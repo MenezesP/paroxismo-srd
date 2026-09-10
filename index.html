@@ -11,9 +11,9 @@
   <link rel="apple-touch-icon" href="assets/images/paroxismo_logo_tight.png" />
   
   <!-- Tailwind CSS Compilado Estático (Seguro para Discord Activity, sem eval) -->
-  <link rel="stylesheet" href="css/tailwind.min.css?v=build_v3" />
+  <link rel="stylesheet" href="css/tailwind.min.css?v=build_v4" />
 
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=discord_v4" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=discord_v5" />
   <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
 </head>
 <body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative">
@@ -45,9 +45,9 @@
   <div id="rotary-backdrop" class="rotary-backdrop" aria-hidden="true"></div>
 
   <!-- ============================================================ -->
-  <!-- BOTÃO FLUTUANTE DE MENU (SUPERIOR ESQUERDO)                  -->
+  <!-- BOTÃO FLUTUANTE DE MENU (SUPERIOR ESQUERDO - VISÍVEL GLOBALMENTE) -->
   <!-- ============================================================ -->
-  <div id="rotary-drawer-toggle-wrapper" class="fixed top-3 left-3 sm:top-4 sm:left-6 z-50 lg:hidden print:hidden">
+  <div id="rotary-drawer-toggle-wrapper" class="fixed top-3 left-3 sm:top-4 sm:left-6 z-50 print:hidden">
     <button id="rotary-drawer-toggle-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/95 hover:bg-[#121622] text-[#cbd0dc] hover:text-[#e21b23] border border-[#e21b23]/70 backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_0_15px_rgba(226,27,35,0.4)] cursor-pointer" title="Recolher / Expandir Menu de Rodas" aria-label="Menu de Navegação">
       <span class="text-[#e21b23] font-black" id="rotary-drawer-badge">00</span>
       <span class="font-serif font-bold text-white tracking-widest text-[10px]" id="rotary-drawer-label">MENU</span>
@@ -60,6 +60,12 @@
   <!-- ============================================================ -->
   <aside id="rotary-nav" class="rotary-wheel-system" title="Role o scroll do mouse ou arraste para girar a roda de opções">
     
+    <!-- Botão de Recolher / Esconder Roda -->
+    <button id="rotary-collapse-btn" class="rotary-collapse-btn" title="Esconder Menu de Rodas (Recolher)">
+      <span class="text-[#e21b23] font-black">❮</span>
+      <span class="font-mono text-[10px] tracking-wider text-white">RECOLHER</span>
+    </button>
+
     <!-- Controles de Giro Manual -->
     <button id="rotary-prev-btn" class="rotary-ctrl-btn up" title="Girar Roda para Cima (Scroll / Seta Cima)">▲</button>
     <button id="rotary-next-btn" class="rotary-ctrl-btn down" title="Girar Roda para Baixo (Scroll / Seta Baixo)">▼</button>

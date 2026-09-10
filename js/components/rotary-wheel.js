@@ -20,6 +20,7 @@ export class RotaryWheel {
     // Elementos da Gaveta Retrátil (Mobile / Desktop)
     this.backdrop = document.getElementById('rotary-backdrop');
     this.drawerToggleBtn = document.getElementById('rotary-drawer-toggle-btn');
+    this.collapseBtn = document.getElementById('rotary-collapse-btn');
     this.drawerBadge = document.getElementById('rotary-drawer-badge');
     this.drawerLabel = document.getElementById('rotary-drawer-label');
     this.drawerArrow = document.getElementById('rotary-drawer-arrow');
@@ -71,7 +72,7 @@ export class RotaryWheel {
   isCompactMode() {
     return window.PAROXISMO_IS_DISCORD ||
            document.body?.classList.contains('discord-activity-mode') ||
-           window.innerWidth < 1360 ||
+           window.innerWidth < 1440 ||
            window.innerHeight < 720;
   }
 
@@ -86,21 +87,21 @@ export class RotaryWheel {
   }
 
   applyDrawerState() {
-    if (!this.isCompactMode()) {
-      this.container?.classList.remove('collapsed');
-      this.backdrop?.classList.remove('active');
-      return;
-    }
-
     if (this.isCollapsed) {
       this.container?.classList.add('collapsed');
+      document.body?.classList.add('rotary-is-collapsed');
       this.backdrop?.classList.remove('active');
       if (this.drawerLabel) this.drawerLabel.textContent = 'MENU';
       if (this.drawerArrow) this.drawerArrow.textContent = '❯';
     } else {
       this.container?.classList.remove('collapsed');
-      this.backdrop?.classList.add('active');
-      if (this.drawerLabel) this.drawerLabel.textContent = 'FECHAR';
+      document.body?.classList.remove('rotary-is-collapsed');
+      if (this.isCompactMode()) {
+        this.backdrop?.classList.add('active');
+      } else {
+        this.backdrop?.classList.remove('active');
+      }
+      if (this.drawerLabel) this.drawerLabel.textContent = 'RECOLHER';
       if (this.drawerArrow) this.drawerArrow.textContent = '❮';
     }
   }
@@ -144,25 +145,40 @@ export class RotaryWheel {
   }
 
   setupEventListeners() {
-    // Botão Gaveta para Puxar / Esconder a Roda
+    // Botão Gaveta Flutuante (Superior Esquerdo)
     this.drawerToggleBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleDrawer();
     });
 
-    // Backdrop Escuro (Fecha a Gaveta no Celular ao Clicar Fora)
+    // Botão Dedicado "RECOLHER" no próprio Menu de Rodas
+    this.collapseBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleDrawer(true);
+    });
+
+    // Backdrop Escuro (Fecha a Gaveta ao Clicar Fora)
     this.backdrop?.addEventListener('click', () => {
       this.toggleDrawer(true);
     });
 
+    // Tecla de Atalho 'M' para alternar o Menu de Rodas
+    window.addEventListener('keydown', (e) => {
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || document.activeElement?.isContentEditable) {
+        return;
+      }
+      if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        this.toggleDrawer();
+      }
+    });
+
     // Ajuste ao redimensionar tela
     window.addEventListener('resize', () => {
-      if (!this.isCompactMode() && this.isCollapsed) {
-        this.isCollapsed = false;
-      } else if (this.isCompactMode() && !this.isCollapsed && !this.backdrop?.classList.contains('active')) {
+      if (this.isCompactMode() && !this.isCollapsed && !this.backdrop?.classList.contains('active')) {
         this.isCollapsed = true;
+        this.applyDrawerState();
       }
-      this.applyDrawerState();
     });
 
     // Botões de rotação
