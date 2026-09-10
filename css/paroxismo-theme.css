@@ -271,7 +271,7 @@ h1, h2, h3, h4, h5, .font-serif {
   cursor: grabbing;
 }
 
-/* Botão Gaveta / Puxador do Menu (Visível Globalmente para Ocultar / Exibir a Roda) */
+/* Botão Único de Controle do Menu (Superior Esquerdo - Visível Globalmente) */
 #rotary-drawer-toggle-wrapper {
   display: flex !important;
 }
@@ -280,50 +280,37 @@ h1, h2, h3, h4, h5, .font-serif {
   display: flex !important;
 }
 
-/* Botão de Recolher no Próprio Menu de Rodas */
-.rotary-collapse-btn {
-  position: absolute;
-  top: 15px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
-  background: rgba(7, 9, 14, 0.96);
-  border: 1px solid rgba(226, 27, 35, 0.6);
-  color: #c8cbd2;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: bold;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-  transition: all 0.25s ease;
-  z-index: 70;
-}
-
-.rotary-collapse-btn:hover {
-  background: #141722;
-  border-color: #e21b23;
-  color: #ffffff;
-  box-shadow: 0 0 15px rgba(226, 27, 35, 0.5);
-  transform: translateX(-2px);
-}
-
-/* Estado Recolhido Global */
+/* Estado Recolhido Global: Totalmente Oculto sem Ocupar Espaço nem Bloquear Conteúdo */
 .rotary-wheel-system.collapsed {
-  transform: translateY(-50%) translateX(-140%) !important;
+  transform: translateY(-50%) translateX(-250%) !important;
   pointer-events: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
+  display: none !important;
 }
 
 .rotary-wheel-system.collapsed * {
   pointer-events: none !important;
+  display: none !important;
 }
 
-body.rotary-is-collapsed #rotary-desktop-spacer {
+/* Quando aberto, exibe como gaveta flutuante elegante sobre o backdrop */
+.rotary-wheel-system:not(.collapsed) {
+  transform: translateY(-50%) translateX(10px) !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  background: rgba(7, 9, 14, 0.98) !important;
+  border: 1px solid rgba(226, 27, 35, 0.6) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
+  backdrop-filter: blur(16px) !important;
+  z-index: 9999 !important;
+}
+
+/* O espaçador vazio não deve roubar espaço útil do conteúdo */
+#rotary-desktop-spacer {
   display: none !important;
   width: 0 !important;
   margin: 0 !important;

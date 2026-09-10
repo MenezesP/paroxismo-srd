@@ -20,13 +20,12 @@ export class RotaryWheel {
     // Elementos da Gaveta Retrátil (Mobile / Desktop)
     this.backdrop = document.getElementById('rotary-backdrop');
     this.drawerToggleBtn = document.getElementById('rotary-drawer-toggle-btn');
-    this.collapseBtn = document.getElementById('rotary-collapse-btn');
     this.drawerBadge = document.getElementById('rotary-drawer-badge');
     this.drawerLabel = document.getElementById('rotary-drawer-label');
     this.drawerArrow = document.getElementById('rotary-drawer-arrow');
     
-    // No Discord ou em telas menores / compactas, inicia SEMPRE recolhido
-    this.isCollapsed = this.isCompactMode();
+    // Inicia SEMPRE recolhido para não sobrepor o conteúdo da tela
+    this.isCollapsed = true;
 
     this.baseItems = [
       { id: 'home', num: '00', label: 'CÓDICE' },
@@ -70,10 +69,7 @@ export class RotaryWheel {
   }
 
   isCompactMode() {
-    return window.PAROXISMO_IS_DISCORD ||
-           document.body?.classList.contains('discord-activity-mode') ||
-           window.innerWidth < 1440 ||
-           window.innerHeight < 720;
+    return true; // Todos os formatos agora usam a gaveta lateral retrátil limpa
   }
 
   toggleDrawer(forceClose = null) {
@@ -93,16 +89,14 @@ export class RotaryWheel {
       this.backdrop?.classList.remove('active');
       if (this.drawerLabel) this.drawerLabel.textContent = 'MENU';
       if (this.drawerArrow) this.drawerArrow.textContent = '❯';
+      if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Mostrar Menu de Opções (M)';
     } else {
       this.container?.classList.remove('collapsed');
       document.body?.classList.remove('rotary-is-collapsed');
-      if (this.isCompactMode()) {
-        this.backdrop?.classList.add('active');
-      } else {
-        this.backdrop?.classList.remove('active');
-      }
-      if (this.drawerLabel) this.drawerLabel.textContent = 'RECOLHER';
+      this.backdrop?.classList.add('active');
+      if (this.drawerLabel) this.drawerLabel.textContent = 'ESCONDER';
       if (this.drawerArrow) this.drawerArrow.textContent = '❮';
+      if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Esconder Menu de Opções (M)';
     }
   }
 
@@ -145,19 +139,13 @@ export class RotaryWheel {
   }
 
   setupEventListeners() {
-    // Botão Gaveta Flutuante (Superior Esquerdo)
+    // Único Botão de Controle do Menu (Superior Esquerdo)
     this.drawerToggleBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleDrawer();
     });
 
-    // Botão Dedicado "RECOLHER" no próprio Menu de Rodas
-    this.collapseBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleDrawer(true);
-    });
-
-    // Backdrop Escuro (Fecha a Gaveta ao Clicar Fora)
+    // Backdrop Escuro (Fecha o Menu ao Clicar Fora)
     this.backdrop?.addEventListener('click', () => {
       this.toggleDrawer(true);
     });

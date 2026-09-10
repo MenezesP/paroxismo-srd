@@ -14,13 +14,13 @@ import { ADVENTURE_DATA } from './data/adventure.js';
 
 import { SearchEngine } from './utils/search-engine.js';
 import { soundFX } from './utils/sound-fx.js';
-import { AtmosphericCanvas } from './components/particle-canvas.js?v=mobile_v5';
-import { RotaryWheel } from './components/rotary-wheel.js?v=mobile_optimized_v2';
+import { AtmosphericCanvas } from './components/particle-canvas.js?v=release_v7';
+import { RotaryWheel } from './components/rotary-wheel.js?v=release_v7';
 
-import { EmotionWheel } from './components/emotion-wheel.js?v=perf_v2';
-import { FusionMatrix } from './components/fusion-matrix.js?v=mobile_v5';
-import { GrimoireViewer } from './components/grimoire-viewer.js?v=perf_v2';
-import { CharacterSheet } from './components/character-sheet.js?v=forge_v2';
+import { EmotionWheel } from './components/emotion-wheel.js?v=release_v7';
+import { FusionMatrix } from './components/fusion-matrix.js?v=release_v7';
+import { GrimoireViewer } from './components/grimoire-viewer.js?v=release_v7';
+import { CharacterSheet } from './components/character-sheet.js?v=release_v7';
 import { DiceRoller } from './components/dice-roller.js?v=mobile_v5';
 import { ArchetypesViewer } from './components/archetypes-viewer.js?v=archetypes_supreme_v1';
 import { ForgeViewer } from './components/forge-viewer.js?v=forge_v3';
