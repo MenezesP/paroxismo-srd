@@ -15,6 +15,8 @@ import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
 
+import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
+
 const CLASS_IMAGES = {
   combate: 'assets/images/Combate.png',
   investigador: 'assets/images/Investigador.jpeg',
@@ -28,16 +30,18 @@ const CLASS_IMAGES = {
   liturgista: 'assets/images/Liturgista.png'
 };
 
+const makeSvgUri = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
 const ICONS8_SHEET = {
-  diceWhite: 'https://img.icons8.com/?id=6569&format=png&size=32&color=FFFFFF',
-  diceRed: 'https://img.icons8.com/?id=6569&format=png&size=32&color=FF1E27',
-  diceBlack: 'https://img.icons8.com/?id=6569&format=png&size=32&color=000000',
-  sword: 'https://img.icons8.com/?id=5336&format=png&size=48&color=E21B23',
-  firearm: 'https://img.icons8.com/?id=1304&format=png&size=48&color=E21B23',
-  shield: 'https://img.icons8.com/?id=852&format=png&size=48&color=E21B23',
-  skull: 'https://img.icons8.com/?id=4009&format=png&size=32&color=FF333D',
-  lock: 'https://img.icons8.com/?id=94&format=png&size=32&color=8E95A5',
-  book: 'https://img.icons8.com/?id=42763&format=png&size=32&color=8E95A5'
+  diceWhite: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5" fill="#ffffff"/><circle cx="16" cy="16" r="1.5" fill="#ffffff"/><circle cx="12" cy="12" r="1.5" fill="#ffffff"/></svg>`),
+  diceRed: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e21b23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5" fill="#e21b23"/><circle cx="16" cy="16" r="1.5" fill="#e21b23"/><circle cx="12" cy="12" r="1.5" fill="#e21b23"/></svg>`),
+  diceBlack: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5" fill="#000000"/><circle cx="16" cy="16" r="1.5" fill="#000000"/><circle cx="12" cy="12" r="1.5" fill="#000000"/></svg>`),
+  sword: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e21b23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4.5 4.5"/><path d="m19 21 2-2"/></svg>`),
+  firearm: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e21b23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-4v6l-18 4z"/><path d="M14 15v5a1.5 1.5 0 0 1-1.5 1.5H9l-1.5-6"/><circle cx="7" cy="11" r="1" fill="#e21b23"/></svg>`),
+  shield: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e21b23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`),
+  skull: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ff333d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><rect x="9" y="16" width="6" height="4"/><circle cx="9.5" cy="10" r="1" fill="#ff333d"/><circle cx="14.5" cy="10" r="1" fill="#ff333d"/></svg>`),
+  lock: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8e95a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`),
+  book: makeSvgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8e95a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`)
 };
 
 const SKILL_CATEGORIES = [
@@ -307,21 +311,6 @@ export class CharacterSheet {
     `;
   }
 
-  rollDice(sides, bonus = 0, label = "Rolagem") {
-    soundFX.playRuneClick();
-    const roll = Math.floor(Math.random() * sides) + 1;
-    const total = roll + bonus;
-    const sign = bonus >= 0 ? `+${bonus}` : `${bonus}`;
-    
-    let isCrit = sides === 20 && roll === 20;
-    let isFumble = sides === 20 && roll === 1;
-
-    let message = `[${label.toUpperCase()}] — Total: ${total} (Dado d${sides}: ${roll} ${bonus !== 0 ? sign : '+0'})`;
-    if (isCrit) message += " [ CRÍTICO NATURAL (20)! SUCESSO DEVASTADOR ]";
-    if (isFumble) message += " [ FALHA CRÍTICA (1)! PAROXISMO INSTÁVEL ]";
-
-    alert(message);
-  }
 
   render() {
     const stats = this.calculateStats();
@@ -891,11 +880,11 @@ export class CharacterSheet {
                     <!-- Topo: Slot de Inventário com Ícone e Descrição -->
                     <div class="flex items-start justify-between gap-4">
                       <div class="flex items-start gap-3">
-                        <div class="dossier-weapon-slot flex-shrink-0 relative overflow-hidden w-14 h-14 bg-[#040508] border border-[#232b3c] flex items-center justify-center">
+                        <div class="dossier-weapon-slot flex-shrink-0 relative overflow-hidden w-14 h-14 bg-[#040508] border border-[#232b3c] flex items-center justify-center p-1.5">
                           ${wpn.imageUrl ? `
-                            <img src="${wpn.imageUrl}" class="w-full h-full object-cover" alt="${wpn.name}" />
+                            <img src="${wpn.imageUrl}" class="w-full h-full object-cover" alt="" onerror="this.onerror=null; this.src='${weaponIcon}';" />
                           ` : `
-                            <img src="${weaponIcon}" class="w-8 h-8 object-contain" alt="${wpn.name}" />
+                            <img src="${weaponIcon}" class="w-8 h-8 object-contain" alt="" />
                           `}
                         </div>
 
@@ -930,8 +919,9 @@ export class CharacterSheet {
                         </div>
                       </div>
 
-                      <button class="remove-weapon-btn text-[10px] font-mono text-[#8e95a5] hover:text-[#e21b23] p-1 cursor-pointer" data-widx="${wIdx}" title="Desequipar Arma">
-                        ✕
+                      <button class="remove-weapon-btn px-2.5 py-1 bg-[#160b0d] hover:bg-[#e21b23] text-[#ff4d58] hover:text-black border border-[#e21b23]/50 text-[10px] font-mono font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs rounded-xs flex-shrink-0" data-widx="${wIdx}" title="Desequipar esta arma">
+                        <span class="text-xs">✕</span>
+                        <span>DESEQUIPAR</span>
                       </button>
                     </div>
 
@@ -1011,8 +1001,9 @@ export class CharacterSheet {
                           </div>
                           <h4 class="text-lg font-serif font-black text-white leading-tight">${rit.name}</h4>
                         </div>
-                        <button class="remove-ritual-btn text-xs text-[#8e95a5] hover:text-[#e21b23] p-1 font-mono cursor-pointer" data-ridx="${rIdx}" title="Desvincular Ritual">
-                          ✕
+                        <button class="remove-ritual-btn px-2 py-0.5 bg-[#160b0d] hover:bg-[#e21b23] text-[#ff4d58] hover:text-black border border-[#e21b23]/50 text-[10px] font-mono font-black transition-all flex items-center gap-1 cursor-pointer rounded-xs flex-shrink-0" data-ridx="${rIdx}" title="Desvincular Ritual">
+                          <span class="text-xs">✕</span>
+                          <span>REMOVER</span>
                         </button>
                       </div>
 
@@ -1199,12 +1190,26 @@ export class CharacterSheet {
         e.stopPropagation();
         const wIdx = parseInt(btn.getAttribute('data-widx'), 10);
         const wName = this.character.customWeapons[wIdx]?.name || "Arma";
-        if (confirm(`Deseja desequipar a arma "${wName}"?`)) {
-          soundFX.playRuneClick();
-          this.character.customWeapons.splice(wIdx, 1);
-          this.saveCharacter();
-          this.render();
-        }
+        showLiturgicalConfirm({
+          title: "DESEQUIPAR ARMA",
+          subtitle: "[ ARSENAL TÁTICO ]",
+          message: `Deseja desequipar e remover a arma <strong>"${wName}"</strong> do seu inventário de campo?`,
+          confirmText: "DESEQUIPAR",
+          cancelText: "MANTER ARMA",
+          danger: true,
+          onConfirm: () => {
+            soundFX.playRuneClick();
+            this.character.customWeapons.splice(wIdx, 1);
+            this.saveCharacter();
+            this.render();
+            showLiturgicalToast({
+              title: "ARSENAL TÁTICO",
+              subtitle: wName,
+              message: "Arma desequipada do arsenal de campo com sucesso.",
+              type: "info"
+            });
+          }
+        });
       });
     });
 
@@ -1214,7 +1219,12 @@ export class CharacterSheet {
         const name = btn.getAttribute('data-name') || 'Ritual';
         if (this.character.currentPe < cost) {
           soundFX.playSealBreak();
-          alert(`Pontos de Esforço insuficientes! O ritual "${name}" requer ${cost} PE (disponível: ${this.character.currentPe} PE).`);
+          showLiturgicalToast({
+            title: "ENERGIA INSUFICIENTE",
+            subtitle: name,
+            message: `Requer ${cost} PE (disponível: ${this.character.currentPe} PE).`,
+            type: "error"
+          });
           return;
         }
         soundFX.playSealBreak();
@@ -1230,12 +1240,26 @@ export class CharacterSheet {
         e.stopPropagation();
         const rIdx = parseInt(btn.getAttribute('data-ridx'), 10);
         const rName = this.character.customRituals[rIdx]?.name || "Ritual";
-        if (confirm(`Deseja desvincular o ritual "${rName}" da sua ficha?`)) {
-          soundFX.playRuneClick();
-          this.character.customRituals.splice(rIdx, 1);
-          this.saveCharacter();
-          this.render();
-        }
+        showLiturgicalConfirm({
+          title: "DESVINCULAR RITUAL",
+          subtitle: "[ GRIMÓRIO PESSOAL ]",
+          message: `Deseja desvincular o ritual <strong>"${rName}"</strong> da sua ficha de agente?`,
+          confirmText: "DESVINCULAR",
+          cancelText: "MANTER RITUAL",
+          danger: true,
+          onConfirm: () => {
+            soundFX.playRuneClick();
+            this.character.customRituals.splice(rIdx, 1);
+            this.saveCharacter();
+            this.render();
+            showLiturgicalToast({
+              title: "GRIMÓRIO PESSOAL",
+              subtitle: rName,
+              message: "Ritual desvinculado da ficha com sucesso.",
+              type: "info"
+            });
+          }
+        });
       });
     });
 
@@ -1261,9 +1285,19 @@ export class CharacterSheet {
             this.character = { ...this.getDefaultCharacter(), ...imported };
             this.saveCharacter();
             this.render();
-            alert('Dossiê de agente carregado com sucesso.');
+            showLiturgicalToast({
+              title: "IMPORTAÇÃO CONCLUÍDA",
+              subtitle: "Dossiê Carregado",
+              message: "Ficha de agente importada com sucesso.",
+              type: "success"
+            });
           } catch (err) {
-            alert('Erro ao importar arquivo JSON.');
+            showLiturgicalToast({
+              title: "ERRO DE IMPORTAÇÃO",
+              subtitle: "Arquivo Inválido",
+              message: "Não foi possível carregar o arquivo JSON.",
+              type: "error"
+            });
           }
         };
         reader.readAsText(file);
@@ -1284,7 +1318,12 @@ export class CharacterSheet {
           soundFX.playRuneClick();
           this.render();
         } catch (err) {
-          alert(err.message || "Erro ao processar imagem de retrato.");
+          showLiturgicalToast({
+            title: "ERRO DE IMAGEM",
+            subtitle: "Retrato",
+            message: err.message || "Erro ao processar imagem de retrato.",
+            type: "error"
+          });
         }
       });
     }
@@ -1303,11 +1342,26 @@ export class CharacterSheet {
     });
 
     this.container.querySelector('#reset-sheet-btn')?.addEventListener('click', () => {
-      if (confirm('Deseja restaurar o dossiê para os padrões iniciais?')) {
-        this.character = this.getDefaultCharacter();
-        this.saveCharacter();
-        this.render();
-      }
+      showLiturgicalConfirm({
+        title: "RESTAURAR DOSSIÊ",
+        subtitle: "[ EXPURGO LITÚRGICO ]",
+        message: "Tem certeza que deseja restaurar a ficha para os padrões iniciais? Todos os dados customizados serão redefinidos.",
+        confirmText: "RESTAURAR FICHA",
+        cancelText: "CANCELAR",
+        danger: true,
+        onConfirm: () => {
+          soundFX.playSealBreak();
+          this.character = this.getDefaultCharacter();
+          this.saveCharacter();
+          this.render();
+          showLiturgicalToast({
+            title: "DOSSIÊ RESTAURADO",
+            subtitle: "Padrão Inicial",
+            message: "Ficha reinicializada com sucesso.",
+            type: "success"
+          });
+        }
+      });
     });
   }
 
@@ -1515,7 +1569,11 @@ export class CharacterSheet {
       soundFX.playRuneClick();
       const printWin = window.open('', '_blank');
       if (!printWin) {
-        alert('Por favor, autorize popups no navegador para imprimir.');
+        showLiturgicalToast({
+          title: "IMPRESSÃO BLOQUEADA",
+          message: "Por favor, autorize popups no navegador para imprimir a ficha.",
+          type: "warning"
+        });
         return;
       }
       printWin.document.write(`

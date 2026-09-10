@@ -7,6 +7,7 @@
 import { RITUALS_DATA } from '../data/rituals.js';
 import { EMOTIONS_DATA } from '../data/emotions.js';
 import { soundFX } from '../utils/sound-fx.js';
+import { showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
 
 const ICONS8 = {
   clock: 'https://img.icons8.com/?id=H0JqzxqGxPQm&format=png&size=48&color=8E95A5',
@@ -776,7 +777,13 @@ export class GrimoireViewer {
     document.getElementById('copy-ritual-btn')?.addEventListener('click', () => {
       const textToCopy = `[PAROXISMO] ${r.name} (${r.circle}º Círculo • ${r.peCost} PE • ${r.emotionName})\nExecução: ${r.execution} | Alcance: ${r.range} | Duração: ${r.duration} | Resistência: ${r.save}\nEfeito: ${r.effect}\nAmpliação: ${r.amplification}`;
       navigator.clipboard.writeText(textToCopy);
-      alert('Fórmula do ritual copiada para a área de transferência.');
+      soundFX.playRuneClick();
+      showLiturgicalToast({
+        title: "GRIMÓRIO COPIADO",
+        subtitle: r.name,
+        message: "Fórmula do ritual copiada para a área de transferência.",
+        type: "success"
+      });
     });
   }
 }

@@ -1212,11 +1212,11 @@ ${arc.level2.penaltyDesc}
       soundFX.playDiceRoll();
       const originalText = btnElement.innerHTML;
       btnElement.innerHTML = `<span>COPIADO COM SUCESSO!</span>`;
+    }).catch(() => {
+      btnElement.innerHTML = `<span>ERRO AO COPIAR</span>`;
       setTimeout(() => {
         btnElement.innerHTML = originalText;
       }, 2000);
-    }).catch(() => {
-      alert("Não foi possível copiar automaticamente para a área de transferência.");
     });
   }
 }

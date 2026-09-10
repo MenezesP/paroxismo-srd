@@ -12,6 +12,7 @@ import { SKILLS_DATA } from '../data/skills-origins.js';
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
+import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
 
 export class ForgeViewer {
   constructor(containerId) {
@@ -1658,7 +1659,12 @@ export class ForgeViewer {
         char.customWeapons.push(wpn);
         this.saveCharacterDossier(char);
         soundFX.playDiceRoll();
-        alert(`Arma "${wpn.name}" equipada na sua Ficha de Personagem!`);
+        showLiturgicalToast({
+          title: "BANCADA DA FORJA",
+          subtitle: wpn.name,
+          message: "Arma equipada na sua Ficha de Personagem!",
+          type: "success"
+        });
       });
     });
 
@@ -1672,7 +1678,12 @@ export class ForgeViewer {
         char.customRituals.push(rit);
         this.saveCharacterDossier(char);
         soundFX.playDiceRoll();
-        alert(`Ritual "${rit.name}" gravado na sua Ficha de Personagem!`);
+        showLiturgicalToast({
+          title: "ATELIÊ DA FORJA",
+          subtitle: rit.name,
+          message: "Ritual gravado na sua Ficha de Personagem!",
+          type: "success"
+        });
       });
     });
 
@@ -1691,16 +1702,34 @@ export class ForgeViewer {
         });
         this.saveCharacterDossier(char);
         soundFX.playDiceRoll();
-        alert(`Origem "${orig.name}" atribuída à sua Ficha!`);
+        showLiturgicalToast({
+          title: "ARQUIVO DE IDENTIDADE",
+          subtitle: orig.name,
+          message: "Origem atribuída à sua Ficha!",
+          type: "success"
+        });
       });
     });
 
     document.getElementById('clear-vault-btn')?.addEventListener('click', () => {
-      if (confirm("Deseja expurgar todos os armamentos, rituais e origens do seu acervo local?")) {
-        this.saveCustomData({ weapons: [], rituals: [], origins: [] });
-        soundFX.playRuneClick();
-        this.renderVault();
-      }
+      showLiturgicalConfirm({
+        title: "EXPURGAR ACERVO",
+        subtitle: "[ LIMPEZA TOTAL DA FORJA ]",
+        message: "Tem certeza que deseja expurgar todos os armamentos, rituais e origens do seu acervo local?",
+        confirmText: "EXPURGAR TUDO",
+        cancelText: "CANCELAR",
+        danger: true,
+        onConfirm: () => {
+          this.saveCustomData({ weapons: [], rituals: [], origins: [] });
+          soundFX.playRuneClick();
+          this.renderVault();
+          showLiturgicalToast({
+            title: "ACERVO EXPURGADO",
+            message: "Todos os artefatos locais foram removidos.",
+            type: "info"
+          });
+        }
+      });
     });
   }
 
@@ -1759,7 +1788,11 @@ export class ForgeViewer {
         this.renderWorkshop();
         this.setupWorkshopSubEvents();
       } catch (err) {
-        alert(err.message || "Erro ao processar imagem da arma.");
+        showLiturgicalToast({
+          title: "ERRO DE IMAGEM",
+          message: err.message || "Erro ao processar imagem da arma.",
+          type: "error"
+        });
       }
     });
 
@@ -1890,10 +1923,20 @@ export class ForgeViewer {
       char.customWeapons.push(weaponObj);
       this.saveCharacterDossier(char);
       soundFX.playDiceRoll();
-      alert(`Arma "${weaponObj.name}" salva na Forja e EQUIPADA na sua Ficha de Personagem!`);
+      showLiturgicalToast({
+        title: "BANCADA DA FORJA",
+        subtitle: weaponObj.name,
+        message: "Arma salva na Forja e EQUIPADA na sua Ficha de Personagem!",
+        type: "success"
+      });
     } else {
       soundFX.playRuneClick();
-      alert(`Arma "${weaponObj.name}" salva com sucesso no seu Acervo da Forja!`);
+      showLiturgicalToast({
+        title: "BANCADA DA FORJA",
+        subtitle: weaponObj.name,
+        message: "Arma salva com sucesso no seu Acervo da Forja!",
+        type: "success"
+      });
     }
 
     this.currentWeaponImage = null;
@@ -1940,10 +1983,20 @@ export class ForgeViewer {
       char.customRituals.push(ritualObj);
       this.saveCharacterDossier(char);
       soundFX.playDiceRoll();
-      alert(`Ritual "${ritualObj.name}" salvo e GRAVADO na sua Ficha de Personagem!`);
+      showLiturgicalToast({
+        title: "ATELIÊ DA FORJA",
+        subtitle: ritualObj.name,
+        message: "Ritual salvo e GRAVADO na sua Ficha de Personagem!",
+        type: "success"
+      });
     } else {
       soundFX.playRuneClick();
-      alert(`Ritual "${ritualObj.name}" salvo no Ateliê da Forja!`);
+      showLiturgicalToast({
+        title: "ATELIÊ DA FORJA",
+        subtitle: ritualObj.name,
+        message: "Ritual salvo no Ateliê da Forja!",
+        type: "success"
+      });
     }
 
     this.renderVault();
@@ -1982,10 +2035,20 @@ export class ForgeViewer {
       if (!char.trainedSkills.includes(skill2)) char.trainedSkills.push(skill2);
       this.saveCharacterDossier(char);
       soundFX.playDiceRoll();
-      alert(`Origem "${originObj.name}" atribuída à sua Ficha com as perícias ${skill1} e ${skill2}!`);
+      showLiturgicalToast({
+        title: "ARQUIVO DE IDENTIDADE",
+        subtitle: originObj.name,
+        message: `Origem atribuída à sua Ficha com as perícias ${skill1} e ${skill2}!`,
+        type: "success"
+      });
     } else {
       soundFX.playRuneClick();
-      alert(`Origem "${originObj.name}" salva na Bancada da Forja!`);
+      showLiturgicalToast({
+        title: "ARQUIVO DE IDENTIDADE",
+        subtitle: originObj.name,
+        message: "Origem salva na Bancada da Forja!",
+        type: "success"
+      });
     }
 
     this.renderVault();
@@ -1995,20 +2058,34 @@ export class ForgeViewer {
     const char = this.getCharacterDossier();
     char.customWeapons = char.customWeapons || [];
     if (char.customWeapons.length === 0) {
-      alert("Você não possui armas na ficha ainda. Crie ou equipe uma arma na Forja primeiro!");
+      showLiturgicalToast({
+        title: "MODIFICAÇÃO TÁTICA",
+        message: "Você não possui armas na ficha ainda. Crie ou equipe uma arma na Forja primeiro!",
+        type: "warning"
+      });
       return;
     }
 
     const lastWpn = char.customWeapons[char.customWeapons.length - 1];
     lastWpn.mods = lastWpn.mods || [];
     if (lastWpn.mods.length >= 2) {
-      alert(`A arma "${lastWpn.name}" já possui o limite máximo de 2 modificações táticas!`);
+      showLiturgicalToast({
+        title: "LIMITE ALCANÇADO",
+        subtitle: lastWpn.name,
+        message: "A arma já possui o limite máximo de 2 modificações táticas!",
+        type: "warning"
+      });
       return;
     }
 
     lastWpn.mods.push(modName);
     this.saveCharacterDossier(char);
     soundFX.playDiceRoll();
-    alert(`Modificação "${modName}" instalada com sucesso na arma "${lastWpn.name}" da sua ficha!`);
+    showLiturgicalToast({
+      title: "MODIFICAÇÃO INSTALADA",
+      subtitle: lastWpn.name,
+      message: `Modificação "${modName}" instalada com sucesso na arma "${lastWpn.name}" da sua ficha!`,
+      type: "success"
+    });
   }
 }
