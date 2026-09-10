@@ -2968,7 +2968,9 @@ h1, h2, h3, h4, h5, .font-serif {
 /* ============================================================ */
 
 /* 1. O botão de menu gaveta deve ser visível no Discord e telas < 1360px */
-body.discord-activity-mode #rotary-drawer-toggle-wrapper,
+body.discord-activity-mode #rotary-drawer-toggle-wrapper {
+  display: flex !important;
+}
 @media (max-width: 1359px) {
   #rotary-drawer-toggle-wrapper {
     display: flex !important;
@@ -2976,7 +2978,12 @@ body.discord-activity-mode #rotary-drawer-toggle-wrapper,
 }
 
 /* 2. O espaçador vazio de 240px deve desaparecer no Discord e telas < 1360px */
-body.discord-activity-mode #rotary-desktop-spacer,
+body.discord-activity-mode #rotary-desktop-spacer {
+  display: none !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
 @media (max-width: 1359px) {
   #rotary-desktop-spacer {
     display: none !important;
@@ -2987,7 +2994,35 @@ body.discord-activity-mode #rotary-desktop-spacer,
 }
 
 /* 3. A Roda de Opções nunca pode sobrepor o conteúdo permanentemente */
-body.discord-activity-mode .rotary-wheel-system,
+body.discord-activity-mode .rotary-wheel-system {
+  left: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 9999 !important;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
+}
+
+body.discord-activity-mode .rotary-wheel-system.collapsed {
+  transform: translateY(-50%) translateX(-180%) !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  display: none !important;
+}
+
+body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
+  transform: translateY(-50%) translateX(10px) !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  background: rgba(7, 9, 14, 0.97) !important;
+  border: 1px solid rgba(226, 27, 35, 0.6) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(226, 27, 35, 0.35) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
 @media (max-width: 1359px) {
   .rotary-wheel-system {
     left: 8px !important;
@@ -3020,6 +3055,14 @@ body.discord-activity-mode .rotary-wheel-system,
 }
 
 /* 4. Em telas com altura baixa (ex: 475px do Discord), escala a roda para caber sem cortar */
+body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
+  transform: translateY(-50%) translateX(10px) scale(0.76) !important;
+  transform-origin: left center !important;
+}
+body.discord-activity-mode .rotary-wheel-system.collapsed {
+  transform: translateY(-50%) translateX(-180%) scale(0.76) !important;
+}
+
 @media (max-height: 650px) {
   .rotary-wheel-system:not(.collapsed) {
     transform: translateY(-50%) translateX(10px) scale(0.76) !important;

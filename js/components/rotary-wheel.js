@@ -190,8 +190,8 @@ export class RotaryWheel {
     let isDragging = false;
 
     const startDrag = (clientX, clientY) => {
-      // Se no celular a roda estiver recolhida, JAMAIS inicia o arraste da roda
-      if (window.innerWidth < 1024 && this.isCollapsed) {
+      // Se em modo compacto/Discord a roda estiver recolhida, JAMAIS inicia o arraste da roda
+      if (this.isCompactMode() && this.isCollapsed) {
         return;
       }
       startX = clientX;
@@ -204,8 +204,8 @@ export class RotaryWheel {
       const diffY = clientY - startY;
       const diffX = clientX - startX;
 
-      // Se no celular arrastar expressivamente para a esquerda, fecha a gaveta
-      if (window.innerWidth < 1024 && !this.isCollapsed && diffX < -45 && Math.abs(diffX) > Math.abs(diffY)) {
+      // Se em modo compacto/Discord arrastar expressivamente para a esquerda, fecha a gaveta
+      if (this.isCompactMode() && !this.isCollapsed && diffX < -45 && Math.abs(diffX) > Math.abs(diffY)) {
         isDragging = false;
         this.toggleDrawer(true);
         return;
