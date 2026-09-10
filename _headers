@@ -1,5 +1,5 @@
 /*
-  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: frame-ancestors 'self' https://*.discordsays.com https://discord.com https://*.discord.com;
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 

@@ -24,6 +24,8 @@ import { CharacterSheet } from './components/character-sheet.js?v=forge_v2';
 import { DiceRoller } from './components/dice-roller.js?v=mobile_v5';
 import { ArchetypesViewer } from './components/archetypes-viewer.js?v=archetypes_supreme_v1';
 import { ForgeViewer } from './components/forge-viewer.js?v=forge_v3';
+import { DiscordActivity } from './utils/discord-activity.js?v=discord_v1';
+import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
 
 class App {
   constructor() {
@@ -31,6 +33,8 @@ class App {
     this.currentTab = 'home';
     this.components = {};
     this.rotaryWheel = null;
+    this.discord = new DiscordActivity();
+    this.sync = null;
     
     // Estado de Classes & Habilidades
     this.selectedClassId = 'combate';
@@ -46,6 +50,7 @@ class App {
 
   init() {
     window.ParoxismoApp = this;
+    window.ParoxismoSoundFX = soundFX;
 
     // Inicializa motor atmosférico de partículas (Z-0)
     new AtmosphericCanvas('particle-canvas');
@@ -64,6 +69,15 @@ class App {
     this.setupQuickDice();
     this.setupGmAuth();
     this.updateGmUI();
+
+    // Inicializa Discord Activity se estiver no ambiente Discord
+    this.discord.init().then((res) => {
+      if (res && res.isDiscord) {
+        console.log('[App] Discord Activity conectada! Inicializando sincronização de rolagens...');
+        this.sync = new ActivitySync(res.instanceId, res.user);
+        this.sync.connect();
+      }
+    }).catch((e) => console.warn('[App] Discord init:', e));
 
     const hash = window.location.hash.replace('#', '') || 'home';
     this.navigateTo(hash, {}, true);

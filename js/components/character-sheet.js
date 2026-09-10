@@ -51,8 +51,13 @@ const SKILL_CATEGORIES = [
 export class CharacterSheet {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
-    this.storageKey = "paroxismo_character_data_v1";
+    this.storageKey = window.PAROXISMO_USER_ID 
+      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
+      : "paroxismo_character_data_v1";
     this.character = this.loadCharacter();
+    if (window.PAROXISMO_USER_NAME && (!this.character.player || this.character.player === "Jogador")) {
+      this.character.player = window.PAROXISMO_USER_NAME;
+    }
     this.init();
   }
 
@@ -1402,6 +1407,19 @@ export class CharacterSheet {
     document.body.appendChild(toast);
     toast.querySelector('#close-toast-btn')?.addEventListener('click', () => toast.remove());
     setTimeout(() => toast.remove(), 6000);
+
+    // Dispara broadcast de rolagem para sincronização no Discord Activity
+    try {
+      window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
+        detail: {
+          label,
+          result,
+          details,
+          isCrit,
+          isFumble
+        }
+      }));
+    } catch (e) {}
   }
 
   async openExportImageModal() {

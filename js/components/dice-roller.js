@@ -40,6 +40,18 @@ export class DiceRoller {
       this.history.unshift(rollEntry);
       if (this.history.length > 15) this.history.pop();
       this.render();
+
+      try {
+        window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
+          detail: {
+            label: label || `d${sides}`,
+            result: total,
+            details: `1d${sides} (${rolledValue}) ${modifier >= 0 ? '+' + modifier : modifier}`,
+            isCrit,
+            isFumble
+          }
+        }));
+      } catch (e) {}
     });
   }
 
@@ -63,6 +75,18 @@ export class DiceRoller {
       });
       if (this.history.length > 15) this.history.pop();
       this.render();
+
+      try {
+        window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
+          detail: {
+            label: `SURTO EMOCIONAL (d20 = ${rolledValue}): ${surge.title}`,
+            result: rolledValue,
+            details: surge.effect,
+            isCrit,
+            isFumble
+          }
+        }));
+      } catch (e) {}
     });
   }
 
@@ -86,6 +110,18 @@ export class DiceRoller {
       });
       if (this.history.length > 15) this.history.pop();
       this.render();
+
+      try {
+        window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
+          detail: {
+            label: `CICATRIZ DO ESTRONDO (d20 = ${rolledValue}): ${scar.title}`,
+            result: rolledValue,
+            details: scar.effect,
+            isCrit,
+            isFumble
+          }
+        }));
+      } catch (e) {}
     });
   }
 
