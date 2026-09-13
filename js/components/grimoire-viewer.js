@@ -8,6 +8,7 @@ import { RITUALS_DATA } from '../data/rituals.js';
 import { EMOTIONS_DATA } from '../data/emotions.js';
 import { soundFX } from '../utils/sound-fx.js';
 import { showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
 
 const ICONS8 = {
   clock: 'https://img.icons8.com/?id=H0JqzxqGxPQm&format=png&size=48&color=8E95A5',
@@ -91,38 +92,11 @@ export class GrimoireViewer {
   }
 
   getCharacterDossier() {
-    const storageKey = window.PAROXISMO_USER_ID 
-      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
-      : "paroxismo_character_data_v1";
-    try {
-      const saved = localStorage.getItem(storageKey) || localStorage.getItem('paroxismo_character_data_v1') || localStorage.getItem('paroxismo_character_dossier_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        parsed.customRituals = Array.isArray(parsed.customRituals) ? parsed.customRituals : [];
-        return parsed;
-      }
-    } catch (e) {}
-    return {
-      name: "Agente Não Identificado",
-      customRituals: []
-    };
+    return getCharacterDossier();
   }
 
   saveCharacterDossier(char) {
-    const storageKey = window.PAROXISMO_USER_ID 
-      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
-      : "paroxismo_character_data_v1";
-    const json = JSON.stringify(char);
-    localStorage.setItem(storageKey, json);
-    localStorage.setItem('paroxismo_character_data_v1', json);
-    localStorage.setItem('paroxismo_character_dossier_v1', json);
-    
-    // Atualiza a instância ativa da Ficha de Personagem para sincronia instantânea
-    if (window.ParoxismoApp && window.ParoxismoApp.components && window.ParoxismoApp.components.characterSheet) {
-      const sheet = window.ParoxismoApp.components.characterSheet;
-      sheet.character = sheet.loadCharacter();
-      sheet.render();
-    }
+    saveCharacterDossier(char);
   }
 
   isRitualBound(ritualId, ritualName) {

@@ -13,6 +13,7 @@ import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
 import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
 
 export class ForgeViewer {
   constructor(containerId) {
@@ -2306,37 +2307,11 @@ export class ForgeViewer {
   // LOGICA DE EQUIPAR / INTEGRAR COM FICHA (#ficha)
   // ============================================================
   getCharacterDossier() {
-    try {
-      const saved = localStorage.getItem('paroxismo_character_data_v1') || localStorage.getItem('paroxismo_character_dossier_v1');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      name: "Agente Não Identificado",
-      player: "Jogador",
-      concept: "Sobrevivente do Metrô",
-      level: 1,
-      classId: "combate",
-      originId: "forca-lei",
-      primaryEmo: "rancor",
-      secondaryEmo: "vazio",
-      attributes: { agi: 2, for: 2, int: 1, pre: 1, vig: 2 },
-      currentPv: 22,
-      currentPe: 3,
-      protectionId: "jaqueta",
-      trainedSkills: ["luta", "atletismo", "vontade", "pontaria", "percepcao"],
-      skillRanks: {},
-      customWeapons: [
-        { name: "Arma Manifestada (Grau 1)", type: "Manifestada", hitMod: "FOR", dmgDice: "1d8+FOR", crit: "19/x2", range: "Curto", mods: [] },
-        { name: "Pistola 9mm Tática", type: "Fogo", hitMod: "AGI", dmgDice: "1d8", crit: "19/x2", range: "Médio", mods: [] }
-      ],
-      customRituals: []
-    };
+    return getCharacterDossier();
   }
 
   saveCharacterDossier(char) {
-    const json = JSON.stringify(char);
-    localStorage.setItem('paroxismo_character_data_v1', json);
-    localStorage.setItem('paroxismo_character_dossier_v1', json);
+    saveCharacterDossier(char);
   }
 
   handleSaveWeapon(equipInSheet) {

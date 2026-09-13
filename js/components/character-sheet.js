@@ -16,6 +16,7 @@ import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
 
 import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
+import { getCharacterDossier, saveCharacterDossier, getDefaultCharacter } from '../utils/character-storage.js?v=char_v1';
 
 const CLASS_IMAGES = {
   combate: 'assets/images/Combate.png',
@@ -55,75 +56,88 @@ const SKILL_CATEGORIES = [
 export class CharacterSheet {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
-    this.storageKey = window.PAROXISMO_USER_ID 
-      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
-      : "paroxismo_character_data_v1";
     this.character = this.loadCharacter();
     if (window.PAROXISMO_USER_NAME && (!this.character.player || this.character.player === "Jogador")) {
       this.character.player = window.PAROXISMO_USER_NAME;
+      this.saveCharacter();
     }
+
+    // Escuta evento do Discord Activity caso a autenticação termine após o mount da ficha
+    window.addEventListener('paroxismo:discord_ready', (e) => {
+      if (e.detail?.user?.global_name || e.detail?.user?.username) {
+        const dName = e.detail.user.global_name || e.detail.user.username;
+        if (!this.character.player || this.character.player === "Jogador") {
+          this.character.player = dName;
+          this.saveCharacter();
+          this.render();
+        }
+      }
+    });
+
+    // Escuta atualizações originadas de outros módulos (Forja, Grimório, etc.)
+    window.addEventListener('paroxismo:character_saved', (e) => {
+      if (e.detail && e.detail !== this.character) {
+        this.character = e.detail;
+        this.render();
+      }
+    });
+
+    // Garante que qualquer alteração pendente em inputs seja gravada antes do fechamento da Activity
+    const flushAndSave = () => {
+      this.flushPendingInputs();
+      this.saveCharacter();
+    };
+    window.addEventListener('beforeunload', flushAndSave);
+    window.addEventListener('pagehide', flushAndSave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushAndSave();
+      }
+    });
+
     this.init();
   }
 
   getDefaultCharacter() {
-    return {
-      name: "Agente Não Identificado",
-      player: "Jogador",
-      concept: "Sobrevivente do Metrô",
-      level: 1,
-      classId: "combate",
-      originId: "forca-lei",
-      primaryEmo: "rancor",
-      secondaryEmo: "vazio",
-      attributes: {
-        agi: 2,
-        for: 2,
-        int: 1,
-        pre: 1,
-        vig: 2
-      },
-      currentPv: 22,
-      currentPe: 3,
-      protectionId: "jaqueta",
-      trainedSkills: ["luta", "atletismo", "vontade", "pontaria", "percepcao"],
-      skillRanks: {},
-      customWeapons: [
-        { id: "wpn-default-1", name: "Arma Manifestada (Grau 1)", type: "Manifestada", hitMod: "FOR", dmgDice: "1d8+FOR", crit: "19/x2", range: "Curto", grip: "media", mods: [] },
-        { id: "wpn-default-2", name: "Pistola 9mm Tática", type: "Fogo", hitMod: "AGI", dmgDice: "1d8", crit: "19/x2", range: "Médio", grip: "leve", mods: [] }
-      ],
-      customRituals: [],
-      conditions: [],
-      customAvatar: null
-    };
+    return getDefaultCharacter();
   }
 
   loadCharacter() {
-    try {
-      const saved = localStorage.getItem(this.storageKey) || localStorage.getItem('paroxismo_character_dossier_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...this.getDefaultCharacter(),
-          ...parsed,
-          customWeapons: parsed.customWeapons || this.getDefaultCharacter().customWeapons,
-          customRituals: parsed.customRituals || [],
-          customAvatar: parsed.customAvatar || null
-        };
-      }
-    } catch (e) {
-      console.warn("Erro ao carregar ficha:", e);
-    }
-    return this.getDefaultCharacter();
+    return getCharacterDossier();
   }
 
   saveCharacter() {
-    try {
-      const json = JSON.stringify(this.character);
-      localStorage.setItem(this.storageKey, json);
-      localStorage.setItem('paroxismo_character_dossier_v1', json);
-    } catch (e) {
-      console.warn("Erro ao salvar ficha:", e);
-    }
+    saveCharacterDossier(this.character);
+  }
+
+  flushPendingInputs() {
+    if (!this.container) return;
+    const nameEl = this.container.querySelector('#char-name');
+    if (nameEl && nameEl.value.trim()) this.character.name = nameEl.value.trim();
+
+    const conceptEl = this.container.querySelector('#char-concept');
+    if (conceptEl) this.character.concept = conceptEl.value.trim();
+
+    const playerEl = this.container.querySelector('#char-player');
+    if (playerEl && playerEl.value.trim()) this.character.player = playerEl.value.trim();
+
+    const levelEl = this.container.querySelector('#char-level');
+    if (levelEl) this.character.level = parseInt(levelEl.value, 10) || 1;
+
+    const classEl = this.container.querySelector('#char-class');
+    if (classEl) this.character.classId = classEl.value;
+
+    const originEl = this.container.querySelector('#char-origin');
+    if (originEl) this.character.originId = originEl.value;
+
+    const primEl = this.container.querySelector('#char-primary-emo');
+    if (primEl) this.character.primaryEmo = primEl.value;
+
+    const secEl = this.container.querySelector('#char-secondary-emo');
+    if (secEl) this.character.secondaryEmo = secEl.value;
+
+    const protEl = this.container.querySelector('#char-protection');
+    if (protEl) this.character.protectionId = protEl.value;
   }
 
   init() {
@@ -139,10 +153,17 @@ export class CharacterSheet {
     let customOrigins = [];
     try {
       const forgeData = JSON.parse(localStorage.getItem('paroxismo_custom_forge') || '{}');
-      if (Array.isArray(forgeData.origins)) customOrigins = forgeData.origins;
+      if (Array.isArray(forgeData.origins)) customOrigins = [...forgeData.origins];
     } catch (e) {}
 
-    let orig = ORIGINS_DATA.find(o => o.id === char.originId) || customOrigins.find(o => o.id === char.originId);
+    // Garante que a customOrigin ativa na ficha esteja presente e nunca seja perdida
+    if (char.customOrigin && !customOrigins.some(o => o.id === char.customOrigin.id)) {
+      customOrigins.unshift(char.customOrigin);
+    }
+
+    let orig = ORIGINS_DATA.find(o => o.id === char.originId) || 
+               customOrigins.find(o => o.id === char.originId) || 
+               char.customOrigin;
     if (!orig) orig = ORIGINS_DATA[0];
 
     // Formata objeto de origem garantindo campos
@@ -1071,10 +1092,13 @@ export class CharacterSheet {
     ['name', 'concept', 'player'].forEach(field => {
       const el = this.container.querySelector('#char-' + field);
       if (el) {
-        el.addEventListener('input', (e) => {
+        const updateField = (e) => {
           this.character[field] = e.target.value;
           this.saveCharacter();
-        });
+        };
+        el.addEventListener('input', updateField);
+        el.addEventListener('blur', updateField);
+        el.addEventListener('change', updateField);
       }
     });
 

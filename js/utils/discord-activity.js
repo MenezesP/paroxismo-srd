@@ -71,18 +71,33 @@ export class DiscordActivity {
           this.auth = await this.sdk.commands.authenticate({ access_token });
           this.user = this.auth.user;
           console.log(`[Discord Activity] Conectado como ${this.user.username}!`);
+          try {
+            localStorage.setItem('paroxismo_discord_user_id', this.user.id);
+            localStorage.setItem('paroxismo_discord_user_name', this.user.global_name || this.user.username);
+          } catch (e) {}
         }
       } catch (authErr) {
         console.warn('[Discord Activity] Autenticação OAuth2 não concluída, usando perfil local:', authErr);
       }
 
-      // Se não autenticou com OAuth2, usa fallback com ID da sessão
+      // Se não autenticou com OAuth2, usa fallback com ID persistente (nunca aleatório a cada sessão)
       if (!this.user) {
-        const tempId = this.params.get('user_id') || ('agente_' + Math.floor(Math.random() * 1000));
+        let stableId = localStorage.getItem('paroxismo_discord_user_id') || 
+                       localStorage.getItem('paroxismo_stable_user_id') || 
+                       this.params.get('user_id');
+        let stableName = localStorage.getItem('paroxismo_discord_user_name');
+
+        if (!stableId) {
+          stableId = 'agente_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 10000);
+          try {
+            localStorage.setItem('paroxismo_stable_user_id', stableId);
+          } catch (e) {}
+        }
+
         this.user = {
-          id: tempId,
-          username: 'Agente_' + tempId.slice(-4),
-          global_name: 'Agente do Avesso',
+          id: stableId,
+          username: stableName || ('Agente_' + stableId.slice(-4)),
+          global_name: stableName || 'Agente do Avesso',
           avatar: null
         };
       }
@@ -94,6 +109,9 @@ export class DiscordActivity {
       window.PAROXISMO_INSTANCE_ID = this.instanceId;
 
       this.injectDiscordBadge();
+
+      // Dispara evento informando que a identidade foi resolvida
+      window.dispatchEvent(new CustomEvent('paroxismo:discord_ready', { detail: { user: this.user, instanceId: this.instanceId } }));
 
       return { isDiscord: true, user: this.user, instanceId: this.instanceId };
     } catch (err) {

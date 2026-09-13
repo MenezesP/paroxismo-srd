@@ -10,6 +10,7 @@ import { EMOTIONS_DATA } from '../data/emotions.js';
 import { soundFX } from '../utils/sound-fx.js';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { normalizeText } from '../utils/search-engine.js';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
 
 export class ArchetypesViewer {
   constructor(containerId) {
@@ -1130,34 +1131,11 @@ export class ArchetypesViewer {
   // INTEGRAÇÃO: TRANSMITIR À FICHA DE PERSONAGEM (#ficha)
   // ============================================================
   getCharacterDossier() {
-    try {
-      const saved = localStorage.getItem('paroxismo_character_data_v1') || localStorage.getItem('paroxismo_character_dossier_v1');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      name: "Agente Não Identificado",
-      player: "Jogador",
-      concept: "Sobrevivente do Metrô",
-      level: 1,
-      classId: "combate",
-      originId: "forca-lei",
-      primaryEmo: "rancor",
-      secondaryEmo: "vazio",
-      attributes: { agi: 2, for: 2, int: 1, pre: 1, vig: 2 },
-      currentPv: 22,
-      currentPe: 3,
-      protectionId: "jaqueta",
-      trainedSkills: ["luta", "atletismo", "vontade", "pontaria", "percepcao"],
-      skillRanks: {},
-      customWeapons: [],
-      customRituals: []
-    };
+    return getCharacterDossier();
   }
 
   saveCharacterDossier(char) {
-    const json = JSON.stringify(char);
-    localStorage.setItem('paroxismo_character_data_v1', json);
-    localStorage.setItem('paroxismo_character_dossier_v1', json);
+    saveCharacterDossier(char);
   }
 
   transmitToSheet(arc, btnElement) {
