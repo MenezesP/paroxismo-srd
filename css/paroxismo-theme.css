@@ -3241,77 +3241,139 @@ body.vtt-view-active #vtt-dice-dock {
 
 .stream-portrait-gallery {
   display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 14px;
-  padding-top: 4px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding: 6px 6px 12px 6px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 27, 35, 0.4) rgba(255, 255, 255, 0.04);
+}
+
+.stream-portrait-gallery::-webkit-scrollbar {
+  height: 5px;
+}
+
+.stream-portrait-gallery::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+}
+
+.stream-portrait-gallery::-webkit-scrollbar-thumb {
+  background: rgba(226, 27, 35, 0.4);
+  border-radius: 3px;
+}
+
+.stream-portrait-gallery::-webkit-scrollbar-thumb:hover {
+  background: rgba(226, 27, 35, 0.8);
 }
 
 .stream-portrait-card {
   position: relative;
-  min-width: 320px;
-  max-width: 400px;
-  flex: 1 1 320px;
-  height: 150px;
-  background: rgba(4, 6, 11, 0.85);
-  border: 1px solid rgba(226, 27, 35, 0.35);
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(226, 27, 35, 0.1);
-  border-radius: 3px;
+  flex: 0 0 280px;
+  width: 280px;
+  min-width: 280px;
+  height: 140px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
   overflow: visible;
   display: flex;
   align-items: center;
-  padding: 6px 14px 6px 8px;
+  padding: 4px 6px;
   box-sizing: border-box;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   user-select: none;
 }
 
 .stream-portrait-card:hover {
-  border-color: rgba(226, 27, 35, 0.85);
-  box-shadow: 0 0 30px rgba(226, 27, 35, 0.45), inset 0 0 20px rgba(226, 27, 35, 0.25);
   transform: translateY(-2px);
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .stream-portrait-card:active {
-  transform: translateY(0px) scale(0.99);
+  transform: translateY(0px) scale(0.98);
 }
 
 .stream-portrait-img-box {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 130px;
+  height: 130px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible;
 }
 
 .stream-portrait-img {
-  width: 130px;
-  height: 130px;
+  width: 120px;
+  height: 120px;
   object-fit: cover;
   object-position: top center;
-  filter: contrast(1.1) drop-shadow(0 0 10px rgba(0, 0, 0, 0.8));
-  mask-image: radial-gradient(circle at 50% 50%, black 68%, transparent 100%);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 68%, transparent 100%);
-  border-radius: 6px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 50%;
+  filter: contrast(1.1) drop-shadow(0 0 10px rgba(0, 0, 0, 0.9));
+  mask-image: radial-gradient(circle at 50% 50%, black 50%, transparent 74%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 50%, transparent 74%);
+  animation: portraitBreathe 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Variações de ritmo de respiração orgânica por personagem */
+.stream-portrait-card:nth-child(2n) .stream-portrait-img {
+  animation-duration: 4.4s;
+  animation-delay: -1.4s;
+}
+
+.stream-portrait-card:nth-child(3n) .stream-portrait-img {
+  animation-duration: 3.8s;
+  animation-delay: -2.5s;
+}
+
+.stream-portrait-card:nth-child(4n) .stream-portrait-img {
+  animation-duration: 4.2s;
+  animation-delay: -0.8s;
+}
+
+@keyframes portraitBreathe {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-3.5px) scale(1.03);
+  }
 }
 
 .stream-portrait-slash {
   position: absolute;
-  bottom: -6px;
-  left: -6px;
-  width: 160px;
-  height: 74px;
+  bottom: -4px;
+  left: -4px;
+  width: 148px;
+  height: 70px;
   pointer-events: none;
   z-index: 5;
-  filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.85));
+  filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.9));
 }
 
 .stream-portrait-pe {
   position: absolute;
-  bottom: 1px;
+  bottom: 2px;
   left: 8px;
   z-index: 10;
   font-family: "OptimaDemiBold", "Optima", "Cinzel", serif;
@@ -3332,12 +3394,13 @@ body.vtt-view-active #vtt-dice-dock {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  margin-left: 12px;
+  margin-left: 10px;
   min-width: 0;
   flex: 1;
   transform: rotate(-4deg);
   transform-origin: left center;
   user-select: none;
+  background: transparent !important;
 }
 
 .stream-portrait-name {
@@ -3363,7 +3426,7 @@ body.vtt-view-active #vtt-dice-dock {
 
 .stream-portrait-pv {
   font-family: "Optima", "Cinzel", serif;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 600;
   color: #ffffff;
   line-height: 1.15;
@@ -3383,22 +3446,9 @@ body.vtt-view-active #vtt-dice-dock {
   margin-top: 4px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.stream-portrait-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  font-size: 8px;
-  font-family: "JetBrains Mono", monospace;
-  padding: 1px 5px;
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 

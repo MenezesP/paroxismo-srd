@@ -1234,11 +1234,6 @@ export class SessionViewer {
 
     return `
       <div class="stream-portrait-card" data-user-id="${p.user?.id || ''}" title="Clique para abrir o Dossiê do Agente">
-        <div class="stream-portrait-badge">
-          <span class="w-1.5 h-1.5 rounded-full ${p.status === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
-          <span class="text-[8px] font-mono ${p.status === 'online' ? 'text-emerald-400' : 'text-amber-400'}">${p.status === 'online' ? 'ONLINE' : 'AUSENTE'}</span>
-        </div>
-
         <div class="stream-portrait-img-box">
           <img class="stream-portrait-img" src="${avatarUrl}" alt="${this.escapeHTML(name)}" onerror="this.onerror=null; this.src='${fallbackImg}';" />
           
@@ -1320,7 +1315,7 @@ export class SessionViewer {
           SINCRONIZADO
         </span>
       </div>
-      <div class="stream-portrait-gallery">
+      <div class="stream-portrait-gallery" id="stream-portrait-gallery">
         ${effectiveParticipants.map(p => this.renderStreamPortraitCardHTML(p)).join('')}
       </div>
     `;
@@ -2892,6 +2887,17 @@ export class SessionViewer {
         this.openCharacterSheetModal();
       });
     });
+
+    const gallery = container.querySelector('#stream-portrait-gallery') || container.querySelector('.stream-portrait-gallery');
+    if (gallery && !gallery._wheelAttached) {
+      gallery._wheelAttached = true;
+      gallery.addEventListener('wheel', (e) => {
+        if (e.deltaY !== 0 && gallery.scrollWidth > gallery.clientWidth) {
+          gallery.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      }, { passive: false });
+    }
   }
 
   renderLeftSidebarOnly() {
