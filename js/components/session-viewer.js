@@ -4,20 +4,20 @@
  * Gothic Dark Fantasy / Terminal CAD Militar do Avesso.
  * 
  * - Palco da Sessão dinâmico com informações reais
- * - Chat & Log de Rolagens persistente com destaque de 20 e 1 natural
+ * - Chat & Log de Rolagens persistente com deduplicação rigorosa
  * - Barra Permanente de Dados (D4, D6, D8, D10, D12, D20, D100) com física 3D
  * - Dossiê Completo do Agente: Armas (Ataque/Dano 1-clique), Rituais (Conjuração 1-clique),
  *   Proteção, PV/PE interativos e Ficha Completa em Popup Modal (Estilo Foundry VTT)
  * - Identificação do Mestre por Senha / Chave de Acesso
- * - Iniciar Combate com rolagem automática de iniciativas de jogadores e monstros
- * - Tracker de Iniciativa com controle de turnos para o Mestre
+ * - Combate Interativo: Fase de Iniciativa com botão para cada jogador rolar sua própria iniciativa,
+ *   opção para o Mestre rolar de todos de uma vez ou individualmente, e ordenação de turnos.
  * - Responsividade completa para Desktop, Tablet e Mobile
  */
 
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
-import { SessionSync } from '../utils/session-sync.js?v=sess_v2';
+import { SessionSync } from '../utils/session-sync.js?v=sess_v3';
 import { CharacterSheet } from './character-sheet.js?v=release_v11';
 import { RULES_DATA } from '../data/rules.js';
 
@@ -42,51 +42,41 @@ export class SessionViewer {
       currentDate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     };
 
-    // Estado da Iniciativa (Dinâmico - sem mockados falsos)
+    // Estado da Iniciativa e Combate
     this.initiativeList = this.loadInitialInitiative();
-    this.activeTurnIndex = 0;
-    this.combatActive = Boolean(localStorage.getItem('paroxismo_combat_active') === 'true');
+    this.combatActive = localStorage.getItem('paroxismo_combat_active') === 'true';
+    this.combatPhase = localStorage.getItem('paroxismo_combat_phase') || (this.combatActive ? 'turns' : 'initiative'); // 'initiative', 'turns'
+    this.combatRound = parseInt(localStorage.getItem('paroxismo_combat_round') || '1', 10);
+    this.activeTurnIndex = parseInt(localStorage.getItem('paroxismo_combat_turn') || '0', 10);
+    this.pendingEnemies = [];
 
-    // Estado do Palco Central & Modo Cinemático
-    this.cinematicScene = null; // { title, url, description }
-
-    // Estado de Handouts (Dinâmico)
+    // Estado de Pistas e Documentos
     this.handouts = this.loadInitialHandouts();
-    this.activeHandoutModal = null;
 
-    // Estado do Chat & Dice Log (Histórico persistido real)
+    // Mensagens do Chat e Rolagens
     this.chatMessages = this.loadInitialMessages();
-    this.typingUsers = new Map();
-    this.typingTimeout = null;
 
-    // Estado do Dock de Dados
-    this.selectedDiceType = 20; // d20 padrão
+    // UI State
+    this.activeLeftTab = 'iniciativa'; // 'iniciativa', 'agente', 'jogadores', 'handouts', 'mestre'
+    this.activeMobileTab = 'mesa';      // 'mesa', 'chat', 'agente', 'mestre'
+    this.selectedDiceType = 20;
     this.diceQuantity = 1;
     this.diceModifier = 0;
     this.diceRollVisibility = 'public'; // 'public', 'private_gm', 'blind'
-
-    // Estado de Interface / Mobile
-    this.activeMobileTab = 'mesa'; // 'mesa', 'chat', 'dados', 'agente', 'mestre'
-    this.activeLeftTab = 'iniciativa'; // 'jogadores', 'iniciativa', 'agente', 'handouts', 'mestre'
-    this.isLeftSidebarCollapsed = false;
-    this.isRightSidebarCollapsed = false;
-
-    // Combat Setup Modal Data
-    this.pendingEnemies = [];
+    this.cinematicScene = null;
+    this.typingTimeout = null;
 
     this.init();
   }
 
-  resolveCurrentUser() {
-    if (this.app?.discord?.user) {
-      return {
-        id: this.app.discord.user.id,
-        name: this.app.discord.user.global_name || this.app.discord.user.username,
-        avatar: this.app.discord.user.avatar,
-        role: this.isGm ? 'GM' : 'PLAYER'
-      };
+  destroy() {
+    if (this.sync) {
+      try { this.sync.disconnect(); } catch (e) {}
+      this.sync = null;
     }
+  }
 
+  resolveCurrentUser() {
     let stableId = localStorage.getItem('paroxismo_discord_user_id') || 
                    localStorage.getItem('paroxismo_stable_user_id');
     let stableName = localStorage.getItem('paroxismo_discord_user_name');
@@ -146,7 +136,6 @@ export class SessionViewer {
 
   saveMessages() {
     try {
-      // Guarda até as 80 mensagens mais recentes
       const toSave = this.chatMessages.slice(-80);
       localStorage.setItem('paroxismo_mesa_messages_v1', JSON.stringify(toSave));
     } catch (e) {}
@@ -154,11 +143,7 @@ export class SessionViewer {
 
   init() {
     if (!this.container) return;
-    
-    // Inicializa a conexão de tempo real com a sala da sessão
     this.initSync();
-    
-    // Renderiza a estrutura da mesa virtual e anexa eventos
     this.render();
   }
 
@@ -166,16 +151,18 @@ export class SessionViewer {
     this.sync = new SessionSync(this.sessionId, this.user, this.character, this.isGm);
     this.sync.connect();
 
-    // Escuta novas mensagens de chat
+    // Escuta novas mensagens de chat (com proteção contra duplicatas)
     this.sync.on('chat', (chatMsg) => {
+      if (chatMsg?.id && this.chatMessages.some(m => m.id === chatMsg.id)) return;
       this.chatMessages.push(chatMsg);
       this.saveMessages();
       this.renderChatFeedOnly();
       this.scrollChatToBottom();
     });
 
-    // Escuta novas rolagens
+    // Escuta novas rolagens (com proteção contra duplicatas)
     this.sync.on('roll', (rollMsg) => {
+      if (rollMsg?.id && this.chatMessages.some(m => m.id === rollMsg.id)) return;
       this.chatMessages.push({
         id: rollMsg.id,
         type: 'roll',
@@ -186,67 +173,91 @@ export class SessionViewer {
       this.scrollChatToBottom();
     });
 
-    // Escuta atualizações de iniciativa
+    // Escuta atualizações completas de iniciativa
     this.sync.on('initiative', (data) => {
       if (data.list) {
         this.initiativeList = data.list;
         localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
       }
-      if (typeof data.activeIndex === 'number') this.activeTurnIndex = data.activeIndex;
+      if (typeof data.activeIndex === 'number') {
+        this.activeTurnIndex = data.activeIndex;
+        localStorage.setItem('paroxismo_combat_turn', String(this.activeTurnIndex));
+      }
       if (typeof data.combatActive === 'boolean') {
         this.combatActive = data.combatActive;
         localStorage.setItem('paroxismo_combat_active', data.combatActive ? 'true' : 'false');
+      }
+      if (data.phase) {
+        this.combatPhase = data.phase;
+        localStorage.setItem('paroxismo_combat_phase', data.phase);
+      }
+      if (typeof data.round === 'number') {
+        this.combatRound = data.round;
+        localStorage.setItem('paroxismo_combat_round', String(this.combatRound));
       }
       this.renderInitiativeListOnly();
       this.renderCenterCombatSummary();
     });
 
+    // Escuta rolagem individual de iniciativa de um agente ou monstro
+    this.sync.on('initiative_roll', (data) => {
+      const actor = this.initiativeList.find(a => a.id === data.actorId);
+      if (actor) {
+        actor.initiative = data.initiative;
+        actor.rolled = true;
+        localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+        this.renderInitiativeListOnly();
+        this.renderCenterCombatSummary();
+      }
+    });
+
     // Escuta handouts compartilhados
     this.sync.on('handout', (data) => {
       if (data.action === 'show' && data.handout) {
-        // Se ainda não estava no acervo, adiciona
         if (!this.handouts.find(h => h.id === data.handout.id)) {
           this.handouts.push(data.handout);
           localStorage.setItem('paroxismo_campaign_handouts_v1', JSON.stringify(this.handouts));
-          this.renderLeftSidebarOnly();
         }
         this.openHandoutModal(data.handout);
+        this.renderLeftSidebarOnly();
         this.renderCenterHandoutSummary();
-      } else if (data.action === 'close') {
-        this.closeHandoutModal();
       }
     });
 
-    // Escuta modo cinemático (Apresentar Cena)
+    // Escuta cenas cinemáticas do Mestre
     this.sync.on('scene', (data) => {
-      if (data.active && data.scene) {
-        this.cinematicScene = data.scene;
-      } else {
-        this.cinematicScene = null;
-      }
+      this.cinematicScene = data.active ? data.scene : null;
       this.renderCenterStageOnly();
     });
 
-    // Escuta eventos de sistema
-    this.sync.on('system', (data) => {
-      this.chatMessages.push({
-        id: data.id,
-        type: 'system',
-        text: data.message,
-        timestamp: data.timestamp || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      });
-      this.saveMessages();
-      this.renderChatFeedOnly();
-      this.scrollChatToBottom();
+    // Escuta presença de participantes
+    this.sync.on('presence', () => {
+      this.renderParticipantsSummaryOnly();
+      if (this.activeLeftTab === 'jogadores') {
+        this.renderLeftSidebarOnly();
+      }
     });
 
-    // Escuta estado da sessão (Pausar/Ativar/Campanha)
+    // Escuta digitação
+    this.sync.on('typing', (data) => {
+      const typingEl = this.container.querySelector('#vtt-typing-indicator');
+      if (typingEl) {
+        if (data.isTyping) {
+          typingEl.textContent = `${data.name} está redigindo...`;
+          typingEl.classList.remove('hidden');
+        } else {
+          typingEl.classList.add('hidden');
+        }
+      }
+    });
+
+    // Escuta atualizações de estado da sessão
     this.sync.on('state', (state) => {
       if (state.status) {
         this.sessionData.status = state.status;
         localStorage.setItem('paroxismo_session_status', state.status);
       }
-      if (typeof state.tacticalNotes === 'string') {
+      if (state.tacticalNotes !== undefined) {
         this.sessionData.tacticalNotes = state.tacticalNotes;
         localStorage.setItem('paroxismo_tactical_notes', state.tacticalNotes);
       }
@@ -262,29 +273,26 @@ export class SessionViewer {
       this.renderCenterStageOnly();
     });
 
-    // Escuta presença de participantes
-    this.sync.on('presence', (participants) => {
-      this.renderParticipantsListOnly(participants);
-      this.renderCenterParticipantsSummary(participants);
-    });
-
-    // Escuta digitando
-    this.sync.on('typing', (data) => {
-      if (data.isTyping) {
-        this.typingUsers.set(data.userId, data.name);
-      } else {
-        this.typingUsers.delete(data.userId);
-      }
-      this.updateTypingIndicator();
+    // Escuta eventos de sistema
+    this.sync.on('system', (sysMsg) => {
+      this.chatMessages.push({
+        id: sysMsg.id || ('sys_' + Date.now()),
+        type: 'system',
+        text: sysMsg.text,
+        timestamp: sysMsg.timestamp
+      });
+      this.saveMessages();
+      this.renderChatFeedOnly();
+      this.scrollChatToBottom();
     });
   }
 
   // ============================================================
-  // RENDERIZAÇÃO COMPLETA DA INTERFACE
+  // RENDERIZAÇÃO PRINCIPAL DO LAYOUT DA SESSÃO
   // ============================================================
   render() {
     this.container.innerHTML = `
-      <div id="paroxismo-vtt-root" class="w-full flex flex-col min-h-[calc(100vh-80px)] pb-24 lg:pb-20 text-white font-mono select-none">
+      <div class="vtt-layout w-full min-h-[calc(100vh-80px)] bg-[#040508] text-[#cbd0dc] flex flex-col font-sans select-none overflow-x-hidden pb-16 lg:pb-12">
         
         <!-- ============================================================ -->
         <!-- 1. SUB-HUD DA SESSÃO (BARRA SUPERIOR DE COMANDO) -->
@@ -374,7 +382,6 @@ export class SessionViewer {
             <span class="font-serif font-bold text-white text-xs sm:text-sm tracking-wide truncate">${this.escapeHTML(this.sessionData.campaignName)}</span>
             <span class="text-[9px] text-[#8e95a5] font-mono flex-shrink-0">[#${this.sessionData.sessionNumber}]</span>
           </div>
-          <span class="text-[9px] text-white/40 font-mono hidden sm:inline">${this.sessionData.currentDate} // Sala: ${this.sessionId}</span>
         </div>
       </div>
 
@@ -389,7 +396,7 @@ export class SessionViewer {
         ${this.isGm ? `
           <div class="flex items-center gap-1">
             <span class="px-2 py-0.5 bg-[#e21b23]/20 border border-[#e21b23] text-[#e21b23] text-[10px] font-bold tracking-wider">✠ MESTRE</span>
-            <button id="vtt-btn-toggle-gm-mode" class="text-[9px] text-white/40 hover:text-white px-1" title="Sair do modo Mestre">[ Sair ]</button>
+            <button id="vtt-btn-toggle-gm-mode" class="text-[9px] text-white/40 hover:text-white px-1 cursor-pointer" title="Sair do modo Mestre">[ Sair ]</button>
           </div>
         ` : `
           <button id="vtt-btn-toggle-gm-mode" class="px-2 py-0.5 bg-black/60 hover:bg-[#e21b23]/20 border border-white/20 hover:border-[#e21b23] text-[10px] text-[#cbd0dc] hover:text-[#e21b23] font-mono flex items-center gap-1 transition-all cursor-pointer" title="Digitar senha para virar Mestre">
@@ -428,45 +435,51 @@ export class SessionViewer {
           PISTAS
         </button>
         ${this.isGm ? `
-          <button class="vtt-left-tab-btn py-1 px-2 text-center transition-all cursor-pointer ${this.activeLeftTab === 'mestre' ? 'bg-[#06b6d4] text-black font-black' : 'text-[#06b6d4] hover:bg-[#06b6d4]/10'}" data-tab="mestre" title="Painel Exclusivo do Mestre">
+          <button class="vtt-left-tab-btn py-1 px-2 text-center transition-all cursor-pointer ${this.activeLeftTab === 'mestre' ? 'bg-[#06b6d4] text-black font-black' : 'text-[#06b6d4] hover:text-white'}" data-tab="mestre">
             MESTRE
           </button>
         ` : ''}
       </div>
 
-      <!-- Container do Conteúdo da Ferramenta -->
-      <div id="vtt-left-content" class="flex-1 bg-[#07090e]/90 border border-white/10 p-3 overflow-y-auto flex flex-col gap-3 min-h-[380px] max-h-[calc(100vh-220px)]">
-        ${this.getLeftTabContentHTML()}
+      <!-- Conteúdo da Aba Selecionada -->
+      <div class="flex-1 bg-[#07090e]/90 border border-white/10 p-2 sm:p-3 overflow-y-auto min-h-0 flex flex-col">
+        ${this.getLeftSidebarContentHTML()}
       </div>
     `;
   }
 
-  getLeftTabContentHTML() {
+  getLeftSidebarContentHTML() {
     switch (this.activeLeftTab) {
       case 'iniciativa':
         return this.getInitiativeHTML();
       case 'agente':
-        return this.getQuickDossierHTML();
+        return this.getAgentDossierHTML();
       case 'jogadores':
-        return this.getParticipantsHTML();
+        return this.getPlayersListHTML();
       case 'handouts':
         return this.getHandoutsHTML();
       case 'mestre':
-        return this.getGmPanelHTML();
+        return this.isGm ? this.getGmPanelHTML() : this.getInitiativeHTML();
       default:
         return this.getInitiativeHTML();
     }
   }
 
   // ------------------------------------------------------------
-  // TAB 1: TRACKER DE INICIATIVA
+  // TAB 1: TRACKER DE INICIATIVA & COMBATE INTERATIVO
   // ------------------------------------------------------------
   getInitiativeHTML() {
-    const activeActor = this.initiativeList[this.activeTurnIndex];
     const hasCombatants = this.initiativeList.length > 0;
+    const isInitiativePhase = this.combatActive && this.combatPhase === 'initiative';
+    const activeActor = (this.combatActive && !isInitiativePhase && hasCombatants) ? this.initiativeList[this.activeTurnIndex] : null;
+
+    // Encontra o actor correspondente ao jogador local
+    const myActor = this.initiativeList.find(a => a.userId === this.user.id) || 
+                    this.initiativeList.find(a => !a.isNpc && a.name === (this.character?.name || 'Agente'));
+    const myBonus = (this.character?.attributes?.agi || 2) + (this.character?.trainedSkills?.includes('iniciativa') ? 2 : 0);
 
     return `
-      <div class="flex flex-col gap-3 h-full">
+      <div class="flex flex-col gap-3 flex-1 min-h-0">
         <!-- Header da Iniciativa -->
         <div class="flex items-center justify-between border-b border-white/10 pb-2">
           <div class="flex items-center gap-2">
@@ -478,8 +491,8 @@ export class SessionViewer {
               ${this.combatActive ? 'ENCERRAR COMBATE' : '⚔ INICIAR COMBATE'}
             </button>
           ` : `
-            <span class="text-[9px] ${this.combatActive ? 'text-emerald-400 font-bold' : 'text-white/40'}">
-              ${this.combatActive ? 'EM ANDAMENTO' : 'FORA DE COMBATE'}
+            <span class="text-[9px] ${this.combatActive ? (isInitiativePhase ? 'text-amber-400 font-bold animate-pulse' : 'text-emerald-400 font-bold') : 'text-white/40'}">
+              ${this.combatActive ? (isInitiativePhase ? 'FASE DE INICIATIVA' : 'EM ANDAMENTO') : 'FORA DE COMBATE'}
             </span>
           `}
         </div>
@@ -490,54 +503,113 @@ export class SessionViewer {
             <span class="text-xs">Nenhum combatente na iniciativa.</span>
             ${this.isGm ? `
               <button id="vtt-btn-init-combat-empty" class="mt-2 px-3 py-1.5 bg-[#e21b23] hover:bg-[#ff333d] text-black text-xs font-bold font-mono transition-all cursor-pointer">
-                + INICIAR COMBATE & ROLAR INICIATIVAS
+                + INICIAR COMBATE & ABRIR INICIATIVAS
               </button>
             ` : `
               <span class="text-[10px]">Aguardando o Mestre iniciar um combate.</span>
             `}
           </div>
         ` : `
-          <!-- Turno Atual em Destaque -->
-          ${activeActor ? `
+          <!-- ============================================== -->
+          <!-- FASE DE INICIATIVA: BOTÃO DE ROLAR DO JOGADOR -->
+          <!-- ============================================== -->
+          ${isInitiativePhase ? `
+            <div class="p-3 bg-[#e21b23]/10 border border-[#e21b23]/50 flex flex-col gap-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-serif font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span class="text-[#e21b23]">🎲</span> FASE DE INICIATIVAS
+                </span>
+                <span class="text-[9px] text-amber-400 font-mono animate-pulse">AGUARDANDO DADOS</span>
+              </div>
+              
+              <!-- Se o jogador ainda não rolou sua iniciativa: botão pulsante -->
+              ${myActor && !myActor.rolled ? `
+                <button class="vtt-btn-roll-my-initiative w-full py-2 bg-[#e21b23] hover:bg-[#ff333d] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(226,27,35,0.5)] cursor-pointer">
+                  <span>🎲</span>
+                  <span>ROLAR MINHA INICIATIVA (${myBonus >= 0 ? '+' + myBonus : myBonus})</span>
+                </button>
+              ` : myActor && myActor.rolled ? `
+                <div class="px-2 py-1.5 bg-black/60 border border-emerald-500/40 text-emerald-400 text-center font-mono text-xs font-bold flex items-center justify-center gap-2">
+                  <span>✓</span>
+                  <span>SUA INICIATIVA: ${myActor.initiative} (Definida)</span>
+                </div>
+              ` : ''}
+
+              <!-- Controles exclusivos do Mestre durante a Fase de Iniciativa -->
+              ${this.isGm ? `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 border-t border-white/10">
+                  <button id="vtt-btn-gm-roll-all" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer" title="Rola a iniciativa de todos os que ainda não jogaram">
+                    <span>🎲</span> ROLAR DE TODOS (MESTRE)
+                  </button>
+                  <button id="vtt-btn-start-turns" class="py-1.5 px-2 bg-[#06b6d4] hover:bg-[#22d3ee] text-black font-black text-[10px] flex items-center justify-center gap-1 cursor-pointer" title="Ordena e começa a rodada de turnos">
+                    <span>▶</span> INICIAR 1ª RODADA
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          <!-- ============================================== -->
+          <!-- FASE DE TURNOS ATIVA: TURNO ATUAL EM DESTAQUE -->
+          <!-- ============================================== -->
+          ${!isInitiativePhase && activeActor ? `
             <div class="p-2.5 bg-[#0e121a] border-l-4 border-[#06b6d4] flex items-center justify-between">
               <div class="flex flex-col">
-                <span class="text-[9px] text-[#06b6d4] font-bold tracking-widest uppercase">▶ TURNO ATUAL</span>
+                <span class="text-[9px] text-[#06b6d4] font-bold tracking-widest uppercase">▶ TURNO ATUAL (RODADA ${this.combatRound})</span>
                 <span class="font-serif font-bold text-white text-sm">${this.escapeHTML(activeActor.name)}</span>
               </div>
               <div class="text-right">
                 <span class="text-[10px] text-[#8e95a5]">INIC</span>
-                <div class="text-base font-black text-[#06b6d4]">${activeActor.initiative}</div>
+                <div class="text-base font-black text-[#06b6d4]">${activeActor.initiative || 0}</div>
               </div>
             </div>
+
+            <!-- Controles de Avanço de Turno (Apenas Mestre) -->
+            ${this.isGm ? `
+              <div class="grid grid-cols-2 gap-1.5">
+                <button id="vtt-btn-prev-turn" class="py-1 px-2 bg-black/60 hover:bg-white/10 border border-white/20 text-[10px] text-[#cbd0dc] hover:text-white flex items-center justify-center gap-1 cursor-pointer">
+                  <span>◀</span> ANTERIOR
+                </button>
+                <button id="vtt-btn-next-turn" class="py-1 px-2 bg-[#e21b23]/20 hover:bg-[#e21b23] border border-[#e21b23] text-[10px] font-bold text-white flex items-center justify-center gap-1 cursor-pointer">
+                  PRÓXIMO <span>▶</span>
+                </button>
+              </div>
+            ` : ''}
           ` : ''}
 
-          <!-- Controles de Avanço de Turno (Apenas Mestre) -->
-          ${this.isGm ? `
-            <div class="grid grid-cols-2 gap-1.5">
-              <button id="vtt-btn-prev-turn" class="py-1 px-2 bg-black/60 hover:bg-white/10 border border-white/20 text-[10px] text-[#cbd0dc] hover:text-white flex items-center justify-center gap-1 cursor-pointer">
-                <span>◀</span> ANTERIOR
-              </button>
-              <button id="vtt-btn-next-turn" class="py-1 px-2 bg-[#e21b23]/20 hover:bg-[#e21b23] border border-[#e21b23] text-[10px] font-bold text-white flex items-center justify-center gap-1 cursor-pointer">
-                PRÓXIMO <span>▶</span>
-              </button>
-            </div>
-          ` : ''}
-
-          <!-- Lista Ordenada de Iniciativa -->
+          <!-- ============================================== -->
+          <!-- LISTA DE COMBATENTES -->
+          <!-- ============================================== -->
           <div class="flex-1 flex flex-col gap-1.5 overflow-y-auto pr-1">
             ${this.initiativeList.map((actor, idx) => {
-              const isCurrent = idx === this.activeTurnIndex;
+              const isCurrent = !isInitiativePhase && idx === this.activeTurnIndex;
+              const hasRolled = actor.rolled || (actor.initiative !== null && actor.initiative !== undefined);
               return `
                 <div class="p-2 ${isCurrent ? 'bg-[#141a24] border border-[#06b6d4]/60' : 'bg-black/40 border border-white/5 hover:border-white/20'} flex items-center justify-between text-xs transition-all">
                   <div class="flex items-center gap-2 min-w-0">
                     <span class="w-4 text-center font-bold ${isCurrent ? 'text-[#06b6d4]' : 'text-white/40'}">${idx + 1}.</span>
                     <div class="flex flex-col min-w-0">
                       <span class="font-serif font-bold ${actor.isNpc ? 'text-[#ff333d]' : 'text-white'} truncate">${this.escapeHTML(actor.name)}</span>
-                      <span class="text-[9px] text-[#8e95a5]">${actor.isNpc ? 'Ameaça / Inimigo' : 'Agente Aliado'}</span>
+                      <span class="text-[9px] text-[#8e95a5]">${actor.isNpc ? 'Ameaça / Inimigo' : 'Agente Aliado'} (+${actor.bonus || 0} inic)</span>
                     </div>
                   </div>
                   <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="px-1.5 py-0.5 bg-black/80 border border-white/10 text-white font-mono text-[11px] font-bold">${actor.initiative}</span>
+                    ${hasRolled ? `
+                      <span class="px-2 py-0.5 bg-black/80 border border-white/20 text-white font-mono text-[11px] font-bold shadow-xs">
+                        ${actor.initiative}
+                      </span>
+                    ` : `
+                      <div class="flex items-center gap-1">
+                        <span class="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-mono text-[9px]">
+                          PENDENTE
+                        </span>
+                        ${this.isGm ? `
+                          <button class="vtt-btn-roll-actor-inic px-1.5 py-0.5 bg-[#e21b23]/20 hover:bg-[#e21b23] text-white hover:text-black border border-[#e21b23]/60 font-mono text-[9px] font-bold transition-all cursor-pointer" data-id="${actor.id}" title="Mestre rola por este combatente">
+                            🎲
+                          </button>
+                        ` : ''}
+                      </div>
+                    `}
                     ${this.isGm ? `
                       <button class="vtt-btn-remove-actor text-white/30 hover:text-[#ff333d] px-1 cursor-pointer" data-id="${actor.id}" title="Remover da Iniciativa">×</button>
                     ` : ''}
@@ -564,53 +636,39 @@ export class SessionViewer {
   }
 
   // ------------------------------------------------------------
-  // TAB 2: DOSSIÊ DO AGENTE (ARMAS, RITUAIS, ITENS, 1-CLIQUE E POPUP FOUNDRY)
+  // TAB 2: MEU AGENTE (ARMAS, RITUAIS, PROTEÇÃO, ATRIBUTOS E POPUP)
   // ------------------------------------------------------------
-  getQuickDossierHTML() {
+  getAgentDossierHTML() {
     const c = this.character;
     const attrs = c.attributes || { agi: 2, for: 2, int: 1, pre: 1, vig: 2 };
-    
-    // Perícias oficiais com atributo base correspondente
-    const officialSkills = [
-      { id: 'luta', name: 'Luta', attr: 'for' },
-      { id: 'pontaria', name: 'Pontaria', attr: 'agi' },
-      { id: 'percepcao', name: 'Percepção', attr: 'pre' },
-      { id: 'investigacao', name: 'Investigação', attr: 'int' },
-      { id: 'atletismo', name: 'Atletismo', attr: 'for' },
-      { id: 'furtividade', name: 'Furtividade', attr: 'agi' },
-      { id: 'iniciativa', name: 'Iniciativa', attr: 'agi' },
-      { id: 'vontade', name: 'Vontade', attr: 'pre' },
-      { id: 'medicina', name: 'Medicina', attr: 'int' },
-      { id: 'ocultismo', name: 'Ocultismo', attr: 'int' },
-      { id: 'reflexos', name: 'Reflexos', attr: 'agi' },
-      { id: 'fortitude', name: 'Fortitude', attr: 'vig' }
-    ];
-
     const weapons = Array.isArray(c.customWeapons) ? c.customWeapons : [];
     const rituals = Array.isArray(c.customRituals) ? c.customRituals : [];
-
-    // Defesa Passiva
-    const defBonus = c.protectionId === 'colete' ? 2 : (c.protectionId === 'pesada' ? 4 : 1);
-    const passiveDef = 10 + (attrs.agi || 0) + defBonus;
+    
+    // Cálculo de Defesa Passiva real
+    let armorBonus = 0;
+    if (c.protectionId === 'colete') armorBonus = 2;
+    else if (c.protectionId === 'pesada') armorBonus = 4;
+    else armorBonus = 1; // jaqueta padrão
+    const passiveDef = 10 + (attrs.agi || 0) + armorBonus;
 
     return `
-      <div class="flex flex-col gap-3">
-        <!-- Cabeçalho do Personagem + Botão Foundry Style Popup -->
-        <div class="flex items-center justify-between border-b border-white/10 pb-2">
+      <div class="flex flex-col gap-3 min-h-0">
+        <!-- Identificação do Personagem & Botão Ver Ficha Foundry Style -->
+        <div class="p-2.5 bg-black/60 border border-white/10 flex items-center justify-between gap-2">
           <div class="flex flex-col min-w-0">
-            <span class="font-serif font-bold text-white text-sm truncate">${this.escapeHTML(c.name || 'Agente')}</span>
-            <span class="text-[10px] text-[#8e95a5] capitalize">${c.concept || 'Sobrevivente'} // Nv ${c.level || 1}</span>
+            <span class="font-serif font-black text-white text-sm truncate uppercase">${this.escapeHTML(c.name || 'Agente Não Identificado')}</span>
+            <span class="text-[9px] text-[#8e95a5] truncate capitalize">${this.escapeHTML(c.concept || 'Sobrevivente')} // Nv ${c.level || 1}</span>
           </div>
-          <button id="vtt-btn-open-foundry-sheet" class="px-2 py-1 bg-[#06b6d4]/10 hover:bg-[#06b6d4] border border-[#06b6d4]/50 hover:border-[#06b6d4] text-[#06b6d4] hover:text-black text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer" title="Abrir ficha completa em janela popup">
+          <button id="vtt-btn-open-foundry-sheet" class="px-2.5 py-1 bg-[#06b6d4]/10 hover:bg-[#06b6d4] border border-[#06b6d4] text-[10px] font-bold text-white hover:text-black transition-all flex items-center gap-1 cursor-pointer flex-shrink-0" title="Abrir Dossiê Completo em Janela Suspensa">
             <span>👁</span>
             <span>VER FICHA</span>
           </button>
         </div>
 
-        <!-- PV e PE Interativos (Com Botões - e +) -->
-        <div class="grid grid-cols-2 gap-2">
+        <!-- Barras Vitais: PV e PE com Ajustes de 1-Clique -->
+        <div class="grid grid-cols-2 gap-2 font-mono">
           <div class="p-2 bg-black/60 border border-[#e21b23]/40 flex flex-col gap-1">
-            <div class="flex justify-between items-center text-[9px] text-[#e21b23] font-bold">
+            <div class="flex justify-between items-center text-[9px] text-[#ff333d] font-bold">
               <span>VIDA (PV)</span>
               <span>${c.currentPv || 20}/20</span>
             </div>
@@ -679,7 +737,7 @@ export class SessionViewer {
           `}
         </div>
 
-        <!-- RITUAIS APRENDIDOS (1-CLIQUE PARA CONJURAÇÃO) -->
+        <!-- RITUAIS APRENDIDOS (CONJURAÇÃO DE 1-CLIQUE) -->
         <div class="flex flex-col gap-1.5">
           <span class="text-[9px] text-[#8e95a5] font-bold uppercase tracking-wider">RITUAIS VINCULADOS</span>
           ${rituals.length === 0 ? `
@@ -687,13 +745,13 @@ export class SessionViewer {
           ` : `
             <div class="flex flex-col gap-1">
               ${rituals.map(r => `
-                <div class="p-2 bg-black/50 border border-[#06b6d4]/30 flex items-center justify-between">
+                <div class="p-2 bg-black/50 border border-[#06b6d4]/30 flex items-center justify-between text-xs">
                   <div class="flex flex-col min-w-0">
-                    <span class="font-serif font-bold text-white text-xs truncate">${this.escapeHTML(r.name)}</span>
-                    <span class="text-[8px] text-[#8e95a5] uppercase">${r.circle || '1º Círculo'} // ${r.cost || '1 PE'}</span>
+                    <span class="font-serif font-bold text-[#06b6d4] truncate">${this.escapeHTML(r.name)}</span>
+                    <span class="text-[9px] text-[#8e95a5]">${r.cost || '1 PE'} // ${r.range || 'Curto'}</span>
                   </div>
-                  <button class="vtt-btn-cast-ritual px-2 py-1 bg-[#06b6d4]/10 hover:bg-[#06b6d4] border border-[#06b6d4]/40 hover:border-[#06b6d4] text-[#06b6d4] hover:text-black text-[9px] font-bold transition-all cursor-pointer" data-name="${r.name}" data-cost="${r.cost || '1 PE'}">
-                    🔮 CONJURAR
+                  <button class="vtt-btn-cast-ritual px-2 py-1 bg-[#06b6d4]/20 hover:bg-[#06b6d4] text-[#06b6d4] hover:text-black border border-[#06b6d4] text-[9px] font-bold transition-all cursor-pointer flex-shrink-0" data-name="${r.name}" data-cost="${r.cost || '1 PE'}">
+                    🔮 CONJURAR (-${r.cost || '1 PE'})
                   </button>
                 </div>
               `).join('')}
@@ -701,36 +759,36 @@ export class SessionViewer {
           `}
         </div>
 
-        <!-- Testes Rápidos de Atributos (1d20 + Atributo) -->
-        <div class="flex flex-col gap-1.5">
+        <!-- ATRIBUTOS BÁSICOS (TESTES DE 1-CLIQUE) -->
+        <div class="flex flex-col gap-1 pt-1">
           <span class="text-[9px] text-[#8e95a5] font-bold uppercase tracking-wider">TESTES DE ATRIBUTO (1-CLIQUE)</span>
-          <div class="grid grid-cols-5 gap-1">
-            ${Object.entries(attrs).map(([key, val]) => `
-              <button class="vtt-btn-quick-attr py-1.5 bg-black/50 hover:bg-[#e21b23]/20 border border-white/10 hover:border-[#e21b23] text-center transition-all cursor-pointer" data-attr="${key}" data-val="${val}" title="Rolar 1d20 + ${val}">
-                <div class="text-[9px] text-white/50 uppercase">${key}</div>
-                <div class="text-xs font-bold text-white">+${val}</div>
+          <div class="grid grid-cols-5 gap-1 text-center font-mono">
+            ${['agi', 'for', 'int', 'pre', 'vig'].map(attr => `
+              <button class="vtt-btn-quick-attr p-1 bg-black/60 hover:bg-[#e21b23]/20 border border-white/10 hover:border-[#e21b23] flex flex-col items-center transition-all cursor-pointer" data-attr="${attr}" data-val="${attrs[attr] || 0}">
+                <span class="text-[8px] text-white/40 uppercase">${attr}</span>
+                <span class="text-xs font-bold text-white">${(attrs[attr] || 0) >= 0 ? '+' + (attrs[attr] || 0) : attrs[attr]}</span>
               </button>
             `).join('')}
           </div>
         </div>
 
-        <!-- Perícias Principais (1-Clique) -->
-        <div class="flex flex-col gap-1.5">
+        <!-- PERÍCIAS (ROLAGENS RÁPIDAS) -->
+        <div class="flex flex-col gap-1 pt-1 flex-1 min-h-0">
           <span class="text-[9px] text-[#8e95a5] font-bold uppercase tracking-wider">PERÍCIAS (1-CLIQUE)</span>
-          <div class="grid grid-cols-1 gap-1 max-h-[170px] overflow-y-auto pr-1">
-            ${officialSkills.map(skill => {
-              const isTrained = (c.trainedSkills || []).includes(skill.id);
+          <div class="flex flex-col gap-1 overflow-y-auto max-h-48 pr-1 font-mono">
+            ${(RULES_DATA.SKILLS || []).slice(0, 16).map(skill => {
+              const isTrained = c.trainedSkills?.includes(skill.id);
               const attrVal = attrs[skill.attr] || 0;
               const bonus = attrVal + (isTrained ? 2 : 0);
               return `
-                <button class="vtt-btn-quick-skill w-full px-2 py-1.5 ${isTrained ? 'bg-[#0f141d] border border-[#06b6d4]/40 hover:border-[#06b6d4]' : 'bg-black/30 border border-white/5 hover:border-white/20'} flex items-center justify-between text-left transition-all cursor-pointer" data-name="${skill.name}" data-mod="${bonus}">
+                <button class="vtt-btn-quick-skill w-full p-1 px-2 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/20 flex items-center justify-between text-left transition-all cursor-pointer" data-name="${skill.name}" data-mod="${bonus}">
                   <div class="flex items-center gap-1.5">
-                    <span class="text-[#e21b23]">🎲</span>
-                    <span class="text-xs ${isTrained ? 'text-white font-bold' : 'text-white/70'}">${skill.name}</span>
+                    <span class="text-[10px] text-white/40">🎲</span>
+                    <span class="text-[11px] ${isTrained ? 'text-white font-bold' : 'text-[#8e95a5]'}">${skill.name}</span>
                     <span class="text-[8px] text-white/30 uppercase">(${skill.attr})</span>
                   </div>
-                  <span class="px-1.5 py-0.2 bg-black/80 border border-white/10 text-[10px] font-mono font-bold ${isTrained ? 'text-[#06b6d4]' : 'text-white/50'}">
-                    +${bonus}
+                  <span class="text-[10px] font-bold ${isTrained ? 'text-[#06b6d4]' : 'text-white/60'}">
+                    ${bonus >= 0 ? '+' + bonus : bonus}
                   </span>
                 </button>
               `;
@@ -742,41 +800,28 @@ export class SessionViewer {
   }
 
   // ------------------------------------------------------------
-  // TAB 3: PARTICIPANTES DA SESSÃO (STATUS DE PRESENÇA REAL)
+  // TAB 3: LISTA DE JOGADORES CONECTADOS
   // ------------------------------------------------------------
-  getParticipantsHTML() {
+  getPlayersListHTML() {
     const participants = this.sync ? Array.from(this.sync.participants.values()) : [];
-
+    
     return `
       <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between border-b border-white/10 pb-2">
-          <span class="text-xs font-bold text-white">AGENTES NA MESA</span>
-          <span class="text-[9px] text-[#06b6d4] font-mono">[ SALA: ${this.sessionId} ]</span>
+          <span class="text-xs font-bold text-white">AGENTES NA MESA (${participants.length})</span>
+          <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            AO VIVO
+          </span>
         </div>
 
-        <div id="vtt-participants-list" class="flex flex-col gap-2">
-          <!-- Participante Local (Você) -->
-          <div class="p-2 bg-black/50 border border-[#06b6d4]/40 flex items-center justify-between">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <span class="font-bold text-white text-xs truncate">${this.escapeHTML(this.user.name)}</span>
-                  <span class="text-[8px] text-[#06b6d4] border border-[#06b6d4]/40 px-1">VOCÊ</span>
-                </div>
-                <span class="text-[9px] text-[#8e95a5] truncate">${this.escapeHTML(this.character?.name || 'Agente')} // ${this.escapeHTML(this.character?.concept || 'Sobrevivente')}</span>
-              </div>
-            </div>
-            ${this.isGm ? '<span class="text-[9px] text-[#e21b23] font-bold">✠ GM</span>' : ''}
-          </div>
-
-          <!-- Outros Participantes Conectados em Tempo Real -->
-          ${participants.filter(p => p.user?.id !== this.user.id).map(p => `
+        <div class="flex flex-col gap-2">
+          ${participants.map(p => `
             <div class="p-2 bg-black/40 border border-white/10 flex items-center justify-between">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <span class="w-2 h-2 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : p.status === 'away' ? 'bg-amber-400' : 'bg-zinc-600'}"></span>
-                <div class="flex flex-col min-w-0">
-                  <span class="font-bold text-white text-xs truncate">${this.escapeHTML(p.user?.name || 'Agente')}</span>
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+                <div class="flex flex-col">
+                  <span class="font-serif font-bold text-white text-xs">${this.escapeHTML(p.user?.name || 'Agente')}</span>
                   <span class="text-[9px] text-[#8e95a5] truncate">${this.escapeHTML(p.character?.name || '')} // ${this.escapeHTML(p.character?.concept || '')}</span>
                 </div>
               </div>
@@ -858,43 +903,43 @@ export class SessionViewer {
         </div>
 
         <!-- Ações do Mestre -->
-        <div class="flex flex-col gap-1.5">
-          <button id="vtt-btn-gm-init-combat" class="w-full p-2 bg-black/60 hover:bg-[#e21b23]/20 border border-[#e21b23]/50 hover:border-[#e21b23] text-left flex items-center justify-between transition-all cursor-pointer">
-            <div class="flex flex-col">
-              <span class="text-xs font-bold text-[#e21b23]">⚔ Iniciar Combate & Rolagem de Iniciativa</span>
-              <span class="text-[9px] text-[#8e95a5]">Rola iniciativas de todos os participantes e inicia turnos</span>
-            </div>
-            <span class="text-xs text-[#e21b23]">❯</span>
-          </button>
-
-          <button id="vtt-btn-gm-scene" class="w-full p-2 bg-black/60 hover:bg-[#06b6d4]/10 border border-[#06b6d4]/40 hover:border-[#06b6d4] text-left flex items-center justify-between transition-all cursor-pointer">
-            <div class="flex flex-col">
-              <span class="text-xs font-bold text-white">🎬 Apresentar Cena (Cinemático)</span>
-              <span class="text-[9px] text-[#8e95a5]">Projeta arte de local ou monstro no palco central</span>
-            </div>
-            <span class="text-xs text-[#06b6d4]">❯</span>
-          </button>
-
-          <button id="vtt-btn-gm-secret-roll" class="w-full p-2 bg-black/60 hover:bg-[#e21b23]/10 border border-[#e21b23]/40 hover:border-[#e21b23] text-left flex items-center justify-between transition-all cursor-pointer">
-            <div class="flex flex-col">
-              <span class="text-xs font-bold text-white">🎲 Rolagem Oculta do Mestre</span>
-              <span class="text-[9px] text-[#8e95a5]">Jogadores sabem que rolou, mas não veem o resultado</span>
-            </div>
-            <span class="text-xs text-[#e21b23]">❯</span>
-          </button>
-
+        <div class="flex flex-col gap-2">
           <button id="vtt-btn-gm-campaign-edit" class="w-full p-2 bg-black/60 hover:bg-white/10 border border-white/10 hover:border-white/30 text-left flex items-center justify-between transition-all cursor-pointer">
             <div class="flex flex-col">
-              <span class="text-xs font-bold text-white">🏛 Editar Dados da Campanha</span>
-              <span class="text-[9px] text-[#8e95a5]">Nome da campanha, número da sessão e sala</span>
+              <span class="text-xs font-bold text-white">✏ Nome da Campanha & Sessão</span>
+              <span class="text-[9px] text-[#8e95a5]">Altera o título oficial e o número da sessão</span>
             </div>
             <span class="text-xs text-white/50">❯</span>
           </button>
 
           <button id="vtt-btn-gm-notes" class="w-full p-2 bg-black/60 hover:bg-white/10 border border-white/10 hover:border-white/30 text-left flex items-center justify-between transition-all cursor-pointer">
             <div class="flex flex-col">
-              <span class="text-xs font-bold text-white">📝 Diretrizes & Anotação Tática</span>
-              <span class="text-[9px] text-[#8e95a5]">Altera o resumo exibido na Visão da Sessão</span>
+              <span class="text-xs font-bold text-white">📋 Editar Diretriz Tática da Missão</span>
+              <span class="text-[9px] text-[#8e95a5]">Atualiza o objetivo visível para todos os jogadores</span>
+            </div>
+            <span class="text-xs text-white/50">❯</span>
+          </button>
+
+          <button id="vtt-btn-gm-init-combat" class="w-full p-2 bg-black/60 hover:bg-[#e21b23]/20 border border-white/10 hover:border-[#e21b23] text-left flex items-center justify-between transition-all cursor-pointer">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-[#ff333d]">⚔ Gerenciar Combate & Iniciativas</span>
+              <span class="text-[9px] text-[#8e95a5]">Adiciona monstros e abre a fase de iniciativas</span>
+            </div>
+            <span class="text-xs text-[#ff333d]">❯</span>
+          </button>
+
+          <button id="vtt-btn-gm-scene" class="w-full p-2 bg-black/60 hover:bg-white/10 border border-white/10 hover:border-white/30 text-left flex items-center justify-between transition-all cursor-pointer">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-white">🎬 Apresentar Cena Cinemática</span>
+              <span class="text-[9px] text-[#8e95a5]">Projeta uma ilustração ou mapa tático no centro</span>
+            </div>
+            <span class="text-xs text-white/50">❯</span>
+          </button>
+
+          <button id="vtt-btn-gm-secret-roll" class="w-full p-2 bg-black/60 hover:bg-white/10 border border-white/10 hover:border-white/30 text-left flex items-center justify-between transition-all cursor-pointer">
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-white">🎲 Rolagem Oculta (Mestre)</span>
+              <span class="text-[9px] text-[#8e95a5]">Rola dados cujo resultado só você visualiza</span>
             </div>
             <span class="text-xs text-white/50">❯</span>
           </button>
@@ -994,13 +1039,52 @@ export class SessionViewer {
 
   getCombatSummaryContentHTML() {
     if (this.combatActive && this.initiativeList.length > 0) {
+      if (this.combatPhase === 'initiative') {
+        const myActor = this.initiativeList.find(a => a.userId === this.user.id) || 
+                        this.initiativeList.find(a => !a.isNpc && a.name === (this.character?.name || 'Agente'));
+        const myBonus = (this.character?.attributes?.agi || 2) + (this.character?.trainedSkills?.includes('iniciativa') ? 2 : 0);
+
+        return `
+          <div class="flex items-center justify-between border-b border-amber-500/30 pb-1.5">
+            <span class="text-[10px] text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1">
+              <span>⚔</span> FASE DE INICIATIVA
+            </span>
+            <span class="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 font-bold">RODADA 1</span>
+          </div>
+          <div class="flex-1 flex flex-col justify-center items-center py-3 text-center gap-2">
+            <span class="text-xs text-[#cbd0dc]">Aguardando rolagens de iniciativa dos combatentes...</span>
+            
+            ${myActor && !myActor.rolled ? `
+              <button class="vtt-btn-roll-my-initiative px-4 py-2 bg-[#e21b23] hover:bg-[#ff333d] text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(226,27,35,0.4)] cursor-pointer">
+                <span>🎲</span>
+                <span>ROLAR MINHA INICIATIVA (${myBonus >= 0 ? '+' + myBonus : myBonus})</span>
+              </button>
+            ` : myActor && myActor.rolled ? `
+              <span class="text-xs text-emerald-400 font-mono font-bold">✓ Sua iniciativa está definida (${myActor.initiative}). Aguardando início dos turnos.</span>
+            ` : ''}
+
+            ${this.isGm ? `
+              <div class="flex items-center gap-2 mt-2">
+                <button id="vtt-btn-center-roll-all" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-[10px] font-bold cursor-pointer">
+                  🎲 ROLAR DE TODOS (MESTRE)
+                </button>
+                <button id="vtt-btn-center-start-turns" class="px-3 py-1.5 bg-[#06b6d4] hover:bg-[#22d3ee] text-black text-[10px] font-bold cursor-pointer">
+                  ▶ COMEÇAR RODADA 1
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      // Fase de Turnos Ativa
       const current = this.initiativeList[this.activeTurnIndex];
       return `
         <div class="flex items-center justify-between border-b border-[#e21b23]/30 pb-1.5">
           <span class="text-[10px] text-[#e21b23] font-bold uppercase tracking-wider flex items-center gap-1">
             <span>⚔</span> COMBATE ATIVO
           </span>
-          <span class="text-[9px] bg-[#e21b23]/20 text-[#e21b23] px-1.5 py-0.5 font-bold">RODADA 1</span>
+          <span class="text-[9px] bg-[#e21b23]/20 text-[#e21b23] px-1.5 py-0.5 font-bold">RODADA ${this.combatRound}</span>
         </div>
         <div class="flex-1 flex flex-col justify-center items-center py-3 text-center">
           <span class="text-[10px] text-[#8e95a5] uppercase">Combatente no Turno:</span>
@@ -1027,7 +1111,7 @@ export class SessionViewer {
         <span class="text-xs">Nenhum combate ativo nesta cena.</span>
         ${this.isGm ? `
           <button id="vtt-btn-center-init-combat" class="mt-1 px-3 py-1.5 bg-[#e21b23] hover:bg-[#ff333d] text-black text-xs font-bold font-mono transition-all cursor-pointer">
-            + INICIAR COMBATE & ROLAR INICIATIVAS
+            + INICIAR COMBATE & ABRIR INICIATIVAS
           </button>
         ` : ''}
       </div>
@@ -1050,14 +1134,16 @@ export class SessionViewer {
               <img src="${lastHandout.imageUrl}" class="w-full h-full object-cover" />
             </div>
           ` : ''}
-          <div class="flex flex-col min-w-0 flex-1">
+          <div class="flex flex-col gap-0.5 min-w-0 flex-1">
             <span class="font-serif font-bold text-white text-xs truncate">${this.escapeHTML(lastHandout.title)}</span>
-            <p class="text-[10px] text-[#8e95a5] line-clamp-2 mt-0.5">${this.escapeHTML(lastHandout.content)}</p>
+            <p class="text-[10px] text-[#8e95a5] line-clamp-2">${this.escapeHTML(lastHandout.content)}</p>
           </div>
         </div>
-        <button class="vtt-btn-view-handout text-[9px] text-right text-[#06b6d4] hover:underline cursor-pointer" data-id="${lastHandout.id}">
-          [ INSPECIONAR PISTA ↗ ]
-        </button>
+        <div class="flex justify-end pt-1 border-t border-white/5">
+          <button class="vtt-btn-view-handout text-[9px] text-[#06b6d4] hover:underline cursor-pointer" data-id="${lastHandout.id}">
+            [ ABRIR DOCUMENTO ]
+          </button>
+        </div>
       `;
     }
 
@@ -1071,7 +1157,7 @@ export class SessionViewer {
       <div class="flex-1 flex flex-col justify-center items-center py-4 text-center text-white/40 gap-1.5">
         <span class="text-xs">Nenhum documento ou pista revelado nesta sessão.</span>
         ${this.isGm ? `
-          <button id="vtt-btn-center-add-handout" class="mt-1 px-3 py-1 bg-black border border-white/20 hover:border-[#e21b23] text-white text-[10px] font-mono cursor-pointer">
+          <button id="vtt-btn-center-add-handout" class="mt-1 px-2.5 py-1 bg-black border border-white/20 hover:border-[#e21b23] text-[9px] text-white cursor-pointer">
             + CADASTRAR DOCUMENTO / PISTA
           </button>
         ` : ''}
@@ -1080,117 +1166,107 @@ export class SessionViewer {
   }
 
   getParticipantsSummaryContentHTML(participants) {
-    const list = [
-      {
-        user: this.user,
-        character: this.character,
-        isGm: this.isGm,
-        status: 'online',
-        isMe: true
-      },
-      ...participants.filter(p => p.user?.id !== this.user.id)
-    ];
-
     return `
-      <div class="flex items-center justify-between border-b border-white/10 pb-1">
-        <span class="text-[10px] text-[#8e95a5] font-bold uppercase tracking-wider">SOBREVIVENTES NA MESA (${list.length})</span>
-        <span class="text-[9px] text-emerald-400 font-mono">● SINCRONIZADO</span>
+      <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
+        <span class="text-[10px] text-white/70 font-bold uppercase tracking-wider">
+          SOBREVIVENTES NA MESA (${participants.length})
+        </span>
+        <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          SINCRONIZADO
+        </span>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1">
-        ${list.map(p => `
-          <div class="p-2 bg-black/50 border border-white/5 flex flex-col gap-1">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="w-1.5 h-1.5 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
-                <span class="text-xs font-bold text-white truncate">${this.escapeHTML(p.character?.name || p.user?.name || 'Agente')}</span>
-              </div>
-              ${p.isGm ? '<span class="text-[8px] bg-[#e21b23]/20 text-[#e21b23] px-1 font-bold">GM</span>' : ''}
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        ${participants.map(p => `
+          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-black/60 border border-white/10">
+            <span class="w-1.5 h-1.5 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+            <div class="flex items-baseline gap-1.5">
+              <span class="font-serif font-bold text-white text-xs">${this.escapeHTML(p.character?.name || p.user?.name || 'Agente')}</span>
+              ${p.isGm ? '<span class="text-[8px] text-[#ff333d] font-mono font-bold">GM</span>' : ''}
             </div>
-            <div class="flex items-center justify-between text-[9px] text-[#8e95a5]">
-              <span>${this.escapeHTML(p.character?.concept || 'Sobrevivente')}</span>
-              <span>PV ${p.character?.currentPv || 20}/20</span>
-            </div>
+            <span class="text-[9px] text-[#8e95a5] font-mono">PV ${p.character?.currentPv || 20}/20</span>
           </div>
         `).join('')}
       </div>
     `;
   }
 
+  // ------------------------------------------------------------
+  // MODO CINEMÁTICO DO MESTRE
+  // ------------------------------------------------------------
   getCinematicStageHTML() {
     const s = this.cinematicScene;
     return `
-      <div class="flex-1 w-full h-full min-h-[460px] bg-black border-2 border-[#e21b23]/60 relative overflow-hidden flex flex-col justify-between p-6 shadow-[0_0_50px_rgba(0,0,0,0.9)] animate-fadeIn">
-        <!-- Imagem de Fundo em Alta Resolução -->
-        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${s.url}');"></div>
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-[1px]"></div>
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/60"></div>
+      <div class="relative w-full h-full min-h-[460px] bg-black border border-[#e21b23]/50 flex flex-col justify-end p-6 overflow-hidden shadow-[0_0_50px_rgba(226,27,35,0.2)] animate-fadeIn">
+        <img src="${s.url}" class="absolute inset-0 w-full h-full object-cover opacity-60 filter contrast-125" />
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none"></div>
 
-        <!-- Header da Cena -->
-        <div class="relative z-10 flex items-center justify-between">
-          <span class="px-2 py-0.5 bg-[#e21b23] text-black text-[10px] font-mono font-black tracking-widest uppercase">
-            🎬 APRESENTAÇÃO DE CENA PELO MESTRE
-          </span>
-          ${this.isGm ? `
-            <button id="vtt-btn-end-cinematic" class="px-3 py-1 bg-black/80 hover:bg-[#e21b23] border border-[#e21b23] text-white text-[10px] font-mono font-bold transition-all cursor-pointer">
+        ${this.isGm ? `
+          <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <button id="vtt-btn-close-scene" class="px-3 py-1 bg-black/80 hover:bg-[#ff333d] border border-white/20 text-xs text-white font-mono cursor-pointer transition-all">
               ✕ ENCERRAR APRESENTAÇÃO
             </button>
-          ` : ''}
-        </div>
+          </div>
+        ` : ''}
 
-        <!-- Conteúdo Monumental da Cena -->
-        <div class="relative z-10 max-w-2xl flex flex-col gap-2">
-          <h1 class="font-serif font-black text-2xl sm:text-3xl text-white tracking-wide uppercase drop-shadow-[0_4px_10px_rgba(0,0,0,0.9)]">
+        <div class="relative z-10 flex flex-col gap-1 max-w-2xl">
+          <span class="text-[10px] text-[#e21b23] font-mono uppercase tracking-widest font-bold">
+            [ CENA EM TRANSMISSÃO // CONDUTOR ]
+          </span>
+          <h2 class="font-serif font-black text-2xl sm:text-3xl text-white uppercase tracking-wide">
             ${this.escapeHTML(s.title)}
-          </h1>
-          <p class="text-xs sm:text-sm text-[#cbd0dc] leading-relaxed font-mono drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-            ${this.escapeHTML(s.description || '')}
-          </p>
+          </h2>
+          ${s.description ? `
+            <p class="text-xs sm:text-sm text-[#cbd0dc] font-liturgical italic mt-1 leading-relaxed">
+              "${this.escapeHTML(s.description)}"
+            </p>
+          ` : ''}
         </div>
       </div>
     `;
   }
 
-  // ============================================================
-  // COLUNA DIREITA: CHAT PERSISTENTE & LOG DE ROLAGENS
-  // ============================================================
+  // ------------------------------------------------------------
+  // COLUNA DIREITA: CHAT DA SESSÃO & HISTÓRICO DE DADOS
+  // ------------------------------------------------------------
   getRightSidebarHTML() {
     return `
-      <!-- Header do Chat -->
-      <div class="p-2.5 border-b border-white/10 flex items-center justify-between bg-black/40">
+      <!-- Cabeçalho do Chat -->
+      <div class="p-2 sm:p-2.5 bg-[#0a0d14] border-b border-white/10 flex items-center justify-between flex-shrink-0">
         <div class="flex items-center gap-1.5">
-          <span class="text-[#e21b23]">💬</span>
-          <span class="text-xs font-bold text-white tracking-wider">REGISTRO DA SESSÃO</span>
+          <span class="text-xs">💬</span>
+          <span class="font-serif font-bold text-xs uppercase text-white tracking-wide">REGISTRO DA SESSÃO</span>
         </div>
         <span class="text-[9px] text-[#8e95a5] font-mono">${this.chatMessages.length} eventos</span>
       </div>
 
-      <!-- Feed de Mensagens com Rolagem -->
-      <div id="vtt-chat-feed" class="flex-1 p-3 overflow-y-auto flex flex-col gap-2.5 text-xs max-h-[calc(100vh-270px)]">
-        ${this.getChatMessagesHTML()}
+      <!-- Feed de Mensagens Rolável -->
+      <div id="vtt-chat-feed" class="flex-1 p-2 sm:p-3 overflow-y-auto space-y-2 min-h-0">
+        ${this.getChatFeedHTML()}
       </div>
 
-      <!-- Indicador de Jogador Digitando -->
-      <div id="vtt-typing-indicator" class="px-3 py-0.5 text-[9px] text-[#06b6d4] italic min-h-[16px]">
-        <!-- Preenchido dinamicamente -->
-      </div>
+      <!-- Indicador de Digitação -->
+      <div id="vtt-typing-indicator" class="hidden px-3 py-0.5 text-[9px] text-[#06b6d4] font-mono italic bg-black/60 border-t border-white/5"></div>
 
-      <!-- Input de Mensagem -->
-      <div class="p-2 border-t border-white/10 bg-[#050505] flex flex-col gap-1.5">
-        <div class="flex items-center justify-between text-[9px] text-[#8e95a5]">
-          <div class="flex items-center gap-1">
-            <span>Canal:</span>
-            <select id="vtt-chat-visibility" class="bg-black text-white border border-white/20 px-1 py-0.5 text-[9px] font-mono cursor-pointer">
-              <option value="public">Público (Todos)</option>
-              <option value="private_gm">Para o Mestre</option>
-              ${this.isGm ? '<option value="gm_narrative">Narrativa do Mestre</option>' : ''}
-            </select>
-          </div>
-          <span class="hidden sm:inline text-white/30">[Enter para enviar]</span>
+      <!-- Barra Inferior de Entrada de Mensagem -->
+      <div class="p-2 bg-[#0a0d14] border-t border-white/10 flex flex-col gap-1.5 flex-shrink-0">
+        <div class="flex items-center justify-between text-[9px] font-mono text-[#8e95a5]">
+          <span>Canal:</span>
+          <select id="vtt-chat-visibility" class="bg-black border border-white/10 text-[#cbd0dc] text-[9px] px-1 py-0.5 outline-none">
+            <option value="public">Público (Todos)</option>
+            <option value="private_gm">Sussurro ao Mestre</option>
+            ${this.isGm ? '<option value="gm_narrative">Narrativa do Mestre</option>' : ''}
+          </select>
         </div>
-
         <div class="flex items-center gap-1.5">
-          <input type="text" id="vtt-chat-input" placeholder="Digite sua fala ou ação..." class="flex-1 bg-black/80 border border-white/20 focus:border-[#e21b23] px-2.5 py-1.5 text-xs text-white placeholder-white/30 outline-none font-mono" />
-          <button id="vtt-btn-send-chat" class="px-3 py-1.5 bg-[#e21b23]/20 hover:bg-[#e21b23] border border-[#e21b23] text-white text-xs font-bold transition-all cursor-pointer">
+          <input 
+            type="text" 
+            id="vtt-chat-input" 
+            placeholder="Digite sua fala ou ação..." 
+            class="flex-1 bg-black border border-white/20 focus:border-[#e21b23] text-xs text-white px-2 py-1.5 outline-none font-sans"
+            autocomplete="off"
+          />
+          <button id="vtt-btn-send-chat" class="px-3 py-1.5 bg-[#e21b23] hover:bg-[#ff333d] text-black font-bold text-xs cursor-pointer transition-all">
             ➤
           </button>
         </div>
@@ -1198,145 +1274,103 @@ export class SessionViewer {
     `;
   }
 
-  getChatMessagesHTML() {
+  getChatFeedHTML() {
     return this.chatMessages.map(msg => {
-      // 1. Mensagem de Rolagem de Dados
-      if (msg.type === 'roll') {
-        const is20 = msg.isCrit || (msg.rolls && msg.rolls.includes(20));
-        const is1 = msg.isFumble || (msg.rolls && msg.rolls.includes(1));
-        
-        let borderClass = 'border-white/10';
-        let glowClass = '';
-        if (is20) {
-          borderClass = 'border-[#06b6d4]';
-          glowClass = 'shadow-[0_0_15px_rgba(6,182,212,0.3)]';
-        } else if (is1) {
-          borderClass = 'border-[#ff333d]';
-          glowClass = 'shadow-[0_0_15px_rgba(255,51,61,0.3)]';
-        }
-
-        // Se for rolagem oculta mascarada para jogador comum
-        if (msg.isMasked && !this.isGm) {
-          return `
-            <div class="p-2 bg-black/60 border border-white/10 flex flex-col gap-1 text-[11px]">
-              <div class="flex items-center justify-between text-[9px] text-[#8e95a5]">
-                <span>🎲 ${this.escapeHTML(msg.author?.name || 'Mestre')}</span>
-                <span>${msg.timestamp}</span>
-              </div>
-              <div class="text-[#8e95a5] italic font-serif">
-                O Mestre realizou uma rolagem secreta.
-              </div>
-            </div>
-          `;
-        }
-
-        return `
-          <div class="p-2 bg-[#090d14] border ${borderClass} ${glowClass} flex flex-col gap-1 text-[11px] animate-fadeIn">
-            <div class="flex items-center justify-between text-[9px] text-[#8e95a5]">
-              <span class="font-bold ${msg.author?.isGm ? 'text-[#e21b23]' : 'text-white'}">🎲 ${this.escapeHTML(msg.author?.name || 'Agente')}</span>
-              <span>${msg.timestamp}</span>
-            </div>
-            
-            <div class="flex items-center justify-between">
-              <span class="text-white/80 font-serif">${this.escapeHTML(msg.label || 'Rolagem')}</span>
-              <span class="text-[9px] text-white/40 font-mono">${msg.formula}</span>
-            </div>
-
-            <div class="flex items-baseline justify-between pt-1 border-t border-white/5">
-              <div class="text-[10px] text-[#8e95a5]">
-                ${msg.rolls ? msg.rolls.join(' + ') : ''} ${msg.modifier >= 0 ? '+' + msg.modifier : msg.modifier}
-              </div>
-              <div class="flex items-center gap-1.5">
-                ${is20 ? '<span class="text-[8px] bg-[#06b6d4]/20 text-[#06b6d4] px-1 font-bold">20 NAT</span>' : ''}
-                ${is1 ? '<span class="text-[8px] bg-[#ff333d]/20 text-[#ff333d] px-1 font-bold">1 NAT</span>' : ''}
-                <span class="text-sm font-black ${is20 ? 'text-[#06b6d4]' : is1 ? 'text-[#ff333d]' : 'text-white'}">
-                  TOTAL: ${msg.total}
-                </span>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      // 2. Mensagem do Sistema
       if (msg.type === 'system') {
         return `
-          <div class="py-1 px-2 bg-black/40 border-l-2 border-[#06b6d4] text-[10px] text-white/60 font-mono">
-            ${this.escapeHTML(msg.text)}
+          <div class="p-2 bg-[#0e121a] border-l-2 border-[#06b6d4] text-[10px] text-[#cbd0dc] font-mono">
+            <span class="text-white/40 text-[9px] block">${msg.timestamp}</span>
+            <span>${this.escapeHTML(msg.text)}</span>
           </div>
         `;
       }
 
-      // 3. Mensagem Narrativa do Mestre
-      if (msg.type === 'gm_narrative') {
+      if (msg.type === 'roll') {
+        const isCrit = msg.isCrit;
+        const isFumble = msg.isFumble;
+        const authorName = msg.author?.name || msg.author?.characterName || msg.senderName || 'Agente';
+        const isGmAuthor = msg.author?.isGm || msg.isGm;
+
         return `
-          <div class="p-2.5 bg-[#12080a] border-l-2 border-[#e21b23] flex flex-col gap-1">
-            <div class="flex items-center justify-between text-[9px]">
-              <span class="text-[#e21b23] font-black tracking-wider">✠ MESTRE</span>
-              <span class="text-white/30">${msg.timestamp}</span>
+          <div class="p-2.5 bg-black/60 border ${isCrit ? 'border-[#06b6d4] shadow-[0_0_15px_rgba(6,182,212,0.4)]' : isFumble ? 'border-[#ff333d] shadow-[0_0_15px_rgba(255,51,61,0.4)]' : 'border-white/10'} flex flex-col gap-1.5 font-mono">
+            <div class="flex items-center justify-between text-[9px] text-[#8e95a5] border-b border-white/5 pb-1">
+              <div class="flex items-center gap-1">
+                <span>🎲</span>
+                <span class="font-bold ${isGmAuthor ? 'text-[#ff333d]' : 'text-white'}">${this.escapeHTML(authorName)}</span>
+              </div>
+              <span>${msg.timestamp}</span>
             </div>
-            <p class="font-serif italic text-white text-xs leading-relaxed">
-              ${this.escapeHTML(msg.text)}
-            </p>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-xs font-serif font-bold text-white uppercase truncate">${this.escapeHTML(msg.label || 'Rolagem')}</span>
+              <span class="text-[10px] text-white/40">${msg.formula || '1d20'}</span>
+            </div>
+            <div class="flex items-baseline justify-between pt-1 border-t border-white/5">
+              <span class="text-[10px] text-[#8e95a5]">${(msg.rolls || []).join(' + ')} ${msg.modifier ? (msg.modifier >= 0 ? '+' + msg.modifier : msg.modifier) : ''}</span>
+              <span class="text-base font-black ${isCrit ? 'text-[#06b6d4]' : isFumble ? 'text-[#ff333d]' : 'text-white'}">
+                ${msg.isMasked ? '???' : 'TOTAL: ' + msg.total}
+              </span>
+            </div>
           </div>
         `;
       }
 
-      // 4. Mensagem Normal de Jogador
-      const isMe = msg.author?.id === this.user.id;
+      // Mensagem de Texto Normal ou Narrativa do Mestre
+      const isGm = msg.author?.isGm || msg.isGm;
+      const isNarrative = msg.messageType === 'gm_narrative';
+      const author = msg.author?.characterName || msg.author?.name || msg.senderName || 'Agente';
+
       return `
-        <div class="flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}">
-          <div class="flex items-center gap-1.5 text-[9px] text-[#8e95a5]">
-            <span class="font-bold ${isMe ? 'text-[#06b6d4]' : 'text-white'}">${this.escapeHTML(msg.author?.name || 'Agente')}</span>
-            <span>${msg.timestamp}</span>
+        <div class="p-2 ${isNarrative ? 'bg-[#150a0d] border-l-2 border-[#e21b23]' : 'bg-black/40 border border-white/5'} flex flex-col gap-0.5">
+          <div class="flex items-center justify-between text-[9px]">
+            <span class="font-bold ${isGm ? 'text-[#ff333d]' : 'text-[#06b6d4]'}">${this.escapeHTML(author)}</span>
+            <span class="text-[#8e95a5] text-[8px] font-mono">${msg.timestamp}</span>
           </div>
-          <div class="p-2 ${isMe ? 'bg-[#0f141f] border border-[#06b6d4]/30 text-white' : 'bg-black/60 border border-white/10 text-white/90'} max-w-[85%] text-xs leading-relaxed break-words">
+          <p class="text-xs ${isNarrative ? 'text-white font-serif italic text-sm' : 'text-[#cbd0dc]'} leading-relaxed break-words">
             ${this.escapeHTML(msg.text)}
-          </div>
+          </p>
         </div>
       `;
     }).join('');
   }
 
-  // ============================================================
-  // DOCK INFERIOR: BARRA PERMANENTE DE POLIEDROS & AÇÕES RÁPIDAS
-  // ============================================================
+  // ------------------------------------------------------------
+  // DOCK INFERIOR DE DADOS
+  // ------------------------------------------------------------
   getDiceDockHTML() {
     const diceTypes = [4, 6, 8, 10, 12, 20, 100];
     return `
-      <!-- Seleção do Poliedro -->
-      <div class="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
-        <span class="text-[9px] text-[#8e95a5] font-bold uppercase mr-1 hidden sm:inline">DADOS:</span>
-        ${diceTypes.map(d => `
-          <button class="vtt-btn-dice-type px-2.5 py-1 ${this.selectedDiceType === d ? 'bg-[#e21b23] text-black font-black' : 'bg-black/60 text-white/80 hover:text-white border border-white/10 hover:border-white/30'} text-xs font-mono transition-all cursor-pointer" data-sides="${d}">
-            d${d}
+      <div class="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 sm:pb-0">
+        ${diceTypes.map(sides => `
+          <button class="vtt-btn-dice-type px-2.5 py-1 text-xs font-mono font-bold transition-all cursor-pointer ${this.selectedDiceType === sides ? 'bg-[#e21b23] text-black shadow-[0_0_10px_#e21b23]' : 'bg-black border border-white/20 text-[#cbd0dc] hover:border-white'}" data-sides="${sides}">
+            d${sides}
           </button>
         `).join('')}
       </div>
 
-      <!-- Controles de Quantidade & Modificador -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0 text-xs font-mono">
         <!-- Quantidade -->
-        <div class="flex items-center gap-1 bg-black/60 border border-white/10 px-1.5 py-0.5">
-          <span class="text-[9px] text-white/40 uppercase">Qtd:</span>
-          <button id="vtt-btn-qty-dec" class="px-1 text-xs text-[#8e95a5] hover:text-white cursor-pointer">-</button>
-          <span id="vtt-dice-qty" class="text-xs font-bold text-white px-1">${this.diceQuantity}</span>
-          <button id="vtt-btn-qty-inc" class="px-1 text-xs text-[#8e95a5] hover:text-white cursor-pointer">+</button>
+        <div class="flex items-center bg-black border border-white/20">
+          <span class="px-2 text-[9px] text-[#8e95a5]">QTD:</span>
+          <button id="vtt-btn-qty-dec" class="px-1.5 py-0.5 hover:bg-white/10 text-white cursor-pointer">-</button>
+          <span id="vtt-dice-qty-val" class="px-2 font-bold text-white">${this.diceQuantity}</span>
+          <button id="vtt-btn-qty-inc" class="px-1.5 py-0.5 hover:bg-white/10 text-white cursor-pointer">+</button>
         </div>
 
         <!-- Modificador -->
-        <div class="flex items-center gap-1 bg-black/60 border border-white/10 px-1.5 py-0.5">
-          <span class="text-[9px] text-white/40 uppercase">Mod:</span>
-          <button id="vtt-btn-mod-dec" class="px-1 text-xs text-[#8e95a5] hover:text-white cursor-pointer">-</button>
-          <span id="vtt-dice-mod" class="text-xs font-bold text-white px-1">${this.diceModifier >= 0 ? '+' + this.diceModifier : this.diceModifier}</span>
-          <button id="vtt-btn-mod-inc" class="px-1 text-xs text-[#8e95a5] hover:text-white cursor-pointer">+</button>
+        <div class="flex items-center bg-black border border-white/20">
+          <span class="px-2 text-[9px] text-[#8e95a5]">MOD:</span>
+          <button id="vtt-btn-mod-dec" class="px-1.5 py-0.5 hover:bg-white/10 text-white cursor-pointer">-</button>
+          <span id="vtt-dice-mod-val" class="px-2 font-bold ${this.diceModifier >= 0 ? 'text-white' : 'text-[#ff333d]'}">
+            ${this.diceModifier >= 0 ? '+' + this.diceModifier : this.diceModifier}
+          </span>
+          <button id="vtt-btn-mod-inc" class="px-1.5 py-0.5 hover:bg-white/10 text-white cursor-pointer">+</button>
         </div>
 
         <!-- Visibilidade da Rolagem -->
-        <div class="hidden sm:flex items-center gap-1">
-          <select id="vtt-roll-visibility-select" class="bg-black text-white border border-white/20 px-1.5 py-1 text-[10px] font-mono cursor-pointer">
+        <div class="hidden md:flex items-center bg-black border border-white/20">
+          <select id="vtt-select-visibility" class="bg-transparent text-[#cbd0dc] text-[10px] px-2 py-1 outline-none">
             <option value="public" ${this.diceRollVisibility === 'public' ? 'selected' : ''}>Pública</option>
-            <option value="private_gm" ${this.diceRollVisibility === 'private_gm' ? 'selected' : ''}>Privada (GM)</option>
+            <option value="private_gm" ${this.diceRollVisibility === 'private_gm' ? 'selected' : ''}>Para o Mestre</option>
             ${this.isGm ? `<option value="blind" ${this.diceRollVisibility === 'blind' ? 'selected' : ''}>Oculta (Secreta)</option>` : ''}
           </select>
         </div>
@@ -1582,19 +1616,56 @@ export class SessionViewer {
       });
     });
 
-    // 18. Controles de Iniciativa do Mestre
+    // ============================================================
+    // 18. INTERAÇÕES DE INICIATIVA & COMBATE
+    // ============================================================
+
+    // Rolagem da própria iniciativa pelo Jogador
+    root.querySelectorAll('.vtt-btn-roll-my-initiative').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.executeRollMyInitiative();
+      });
+    });
+
+    // Mestre rola para todos os combatentes pendentes
+    root.querySelector('#vtt-btn-gm-roll-all')?.addEventListener('click', () => {
+      this.executeGmRollAllPending();
+    });
+    root.querySelector('#vtt-btn-center-roll-all')?.addEventListener('click', () => {
+      this.executeGmRollAllPending();
+    });
+
+    // Mestre inicia a 1ª Rodada (ordena decrescente e ativa os turnos)
+    root.querySelector('#vtt-btn-start-turns')?.addEventListener('click', () => {
+      this.startCombatTurns();
+    });
+    root.querySelector('#vtt-btn-center-start-turns')?.addEventListener('click', () => {
+      this.startCombatTurns();
+    });
+
+    // Mestre rola individualmente para um combatente específico
+    root.querySelectorAll('.vtt-btn-roll-actor-inic').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const actorId = btn.dataset.id;
+        if (actorId) this.executeGmRollActorInitiative(actorId);
+      });
+    });
+
+    // Controles de Avanço de Turno do Mestre
     root.querySelector('#vtt-btn-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
     root.querySelector('#vtt-btn-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
     root.querySelector('#vtt-btn-center-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
     root.querySelector('#vtt-btn-center-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
 
-    // Botões para Iniciar Combate
+    // Botões para Iniciar / Encerrar Combate
     const openCombatSetup = () => this.openCombatSetupModal();
     root.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => {
       if (this.combatActive) {
         if (confirm('Deseja realmente finalizar o combate?')) {
           this.combatActive = false;
+          this.combatPhase = 'initiative';
           localStorage.setItem('paroxismo_combat_active', 'false');
+          localStorage.setItem('paroxismo_combat_phase', 'initiative');
           this.syncInitiative();
           if (this.sync) this.sync.sendSystemEvent('O Mestre finalizou o combate.');
         }
@@ -1611,8 +1682,10 @@ export class SessionViewer {
         this.initiativeList = [];
         this.activeTurnIndex = 0;
         this.combatActive = false;
+        this.combatPhase = 'initiative';
         localStorage.removeItem('paroxismo_initiative_list_v1');
         localStorage.setItem('paroxismo_combat_active', 'false');
+        localStorage.setItem('paroxismo_combat_phase', 'initiative');
         this.syncInitiative();
       }
     });
@@ -1701,19 +1774,19 @@ export class SessionViewer {
       localStorage.setItem('paroxismo_session_status', this.sessionData.status);
       if (this.sync) {
         this.sync.sendSessionState({ status: this.sessionData.status });
-        this.sync.sendSystemEvent(this.sessionData.status === 'paused' ? 'Sessão pausada pelo Mestre.' : 'Sessão retomada pelo Mestre.');
+        this.sync.sendSystemEvent(this.sessionData.status === 'paused' ? 'O Mestre pausou a sessão.' : 'O Mestre retomou a sessão.');
       }
-      this.render();
+      this.renderHeaderOnly();
     });
 
     root.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => {
-      const msg = prompt('Digite o aviso global do sistema para todos os jogadores:');
+      const msg = prompt('Mensagem do Sistema para todos:');
       if (msg && msg.trim() && this.sync) {
         this.sync.sendSystemEvent(msg.trim());
       }
     });
 
-    root.querySelector('#vtt-btn-end-cinematic')?.addEventListener('click', () => {
+    root.querySelector('#vtt-btn-close-scene')?.addEventListener('click', () => {
       this.cinematicScene = null;
       if (this.sync) {
         this.sync.sendScenePresentation(null, false);
@@ -1723,18 +1796,20 @@ export class SessionViewer {
   }
 
   // ============================================================
-  // DIÁLOGO DE SENHA DO MESTRE (GM AUTH)
+  // MODAL DE AUTENTICAÇÃO DO MESTRE COM SENHA
   // ============================================================
   openGmPasswordModal() {
     const container = this.container.querySelector('#vtt-gm-auth-modal-container');
     if (!container) return;
 
+    soundFX.playRuneClick();
+
     container.innerHTML = `
-      <div class="relative w-full max-w-md bg-[#07090e] border-2 border-[#e21b23] p-5 flex flex-col gap-4 text-white shadow-[0_0_40px_rgba(226,27,35,0.4)] animate-fadeIn">
+      <div class="relative w-full max-w-md bg-[#07090e] border-2 border-[#e21b23] p-5 flex flex-col gap-4 text-white shadow-[0_0_50px_rgba(226,27,35,0.4)] animate-fadeIn">
         <div class="flex items-center justify-between border-b border-white/10 pb-2">
           <div class="flex items-center gap-2">
             <span class="text-[#e21b23]">✠</span>
-            <span class="font-serif font-black text-sm uppercase">CHAVE DE ACESSO DO CONDUTOR</span>
+            <span class="font-serif font-black text-base uppercase">CHAVE DE ACESSO DO CONDUTOR</span>
           </div>
           <button id="vtt-btn-close-gm-auth" class="text-white/40 hover:text-white text-xs cursor-pointer">✕</button>
         </div>
@@ -1768,7 +1843,6 @@ export class SessionViewer {
 
     const doAuth = () => {
       const val = input?.value?.trim().toLowerCase();
-      // Chaves aceitas canônicas
       if (val === 'paroxismo' || val === 'mestre' || val === 'demiurgo' || val === 'gm' || val === '1234') {
         if (typeof soundFX.playSealBreak === 'function') soundFX.playSealBreak();
         this.isGm = true;
@@ -1796,7 +1870,7 @@ export class SessionViewer {
   }
 
   // ============================================================
-  // PREPARAÇÃO DE COMBATE & ROLAGEM DE INICIATIVAS (MESTRE)
+  // PREPARAÇÃO DE COMBATE (MESTRE ADICIONA AMEAÇAS & ABRE INICIATIVAS)
   // ============================================================
   openCombatSetupModal() {
     const container = this.container.querySelector('#vtt-combat-modal-container');
@@ -1815,15 +1889,16 @@ export class SessionViewer {
             <button id="vtt-btn-close-combat-modal" class="text-white/40 hover:text-white text-xs cursor-pointer">✕</button>
           </div>
 
-          <!-- Seção 1: Agentes Aliados -->
+          <!-- Seção 1: Agentes Conectados -->
           <div class="flex flex-col gap-2">
-            <span class="text-[10px] text-[#06b6d4] font-bold uppercase tracking-wider">1. AGENTES CONECTADOS</span>
-            <div class="p-2.5 bg-black/60 border border-white/10 flex items-center justify-between">
+            <span class="text-[10px] text-[#06b6d4] font-bold uppercase tracking-wider">1. AGENTES CONECTADOS NA MESA</span>
+            <div class="p-2.5 bg-black/50 border border-white/10 flex items-center justify-between text-xs">
               <div class="flex items-center gap-2">
-                <input type="checkbox" id="combat-agent-self" checked class="accent-[#e21b23]" />
-                <label for="combat-agent-self" class="font-bold text-xs text-white">${this.escapeHTML(this.character?.name || 'Agente')}</label>
+                <span class="text-emerald-400">●</span>
+                <span class="font-bold text-white">${this.escapeHTML(this.character?.name || 'Agente')}</span>
+                <span class="text-[9px] text-[#8e95a5]">(${this.escapeHTML(this.character?.concept || 'Sobrevivente')})</span>
               </div>
-              <span class="text-[10px] text-[#8e95a5] font-mono">Bônus Inic: +2</span>
+              <span class="text-[10px] text-[#8e95a5] font-mono">Bônus Inic: +${(this.character?.attributes?.agi || 2) + (this.character?.trainedSkills?.includes('iniciativa') ? 2 : 0)}</span>
             </div>
           </div>
 
@@ -1831,7 +1906,6 @@ export class SessionViewer {
           <div class="flex flex-col gap-2">
             <span class="text-[10px] text-[#e21b23] font-bold uppercase tracking-wider">2. AMEAÇAS / INIMIGOS</span>
             
-            <!-- Lista de inimigos já adicionados -->
             <div id="combat-enemies-list" class="flex flex-col gap-1.5">
               ${this.pendingEnemies.map((en, idx) => `
                 <div class="p-2 bg-black/40 border border-[#e21b23]/30 flex items-center justify-between text-xs">
@@ -1842,7 +1916,7 @@ export class SessionViewer {
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-[10px] text-[#06b6d4] font-mono">+${en.bonus} inic</span>
-                    <button class="combat-remove-enemy text-white/30 hover:text-[#ff333d]" data-idx="${idx}">×</button>
+                    <button class="combat-remove-enemy text-white/30 hover:text-[#ff333d] cursor-pointer" data-idx="${idx}">×</button>
                   </div>
                 </div>
               `).join('')}
@@ -1873,20 +1947,19 @@ export class SessionViewer {
             </div>
           </div>
 
-          <!-- Seção 3: Botão Monumental de Rolar Todas as Iniciativas -->
+          <!-- Seção 3: Botão de Abrir Fase de Iniciativas -->
           <div class="pt-3 border-t border-white/10 flex items-center justify-between">
             <button id="vtt-btn-cancel-combat-modal" class="px-3 py-1.5 bg-black border border-white/20 text-white text-xs cursor-pointer">
               CANCELAR
             </button>
-            <button id="vtt-btn-execute-combat-roll" class="px-4 py-2 bg-[#e21b23] hover:bg-[#ff333d] text-black font-black text-xs tracking-wider flex items-center gap-1.5 transition-all shadow-[0_0_20px_rgba(226,27,35,0.4)] cursor-pointer">
-              <span>🎲</span>
-              <span>ROLAR INICIATIVAS & INICIAR COMBATE</span>
+            <button id="vtt-btn-open-init-phase" class="px-4 py-2 bg-[#e21b23] hover:bg-[#ff333d] text-black font-black text-xs tracking-wider flex items-center gap-1.5 transition-all shadow-[0_0_20px_rgba(226,27,35,0.4)] cursor-pointer">
+              <span>⚔</span>
+              <span>INICIAR COMBATE & ABRIR INICIATIVAS</span>
             </button>
           </div>
         </div>
       `;
 
-      // Eventos internos do modal
       container.querySelector('#combat-btn-add-enemy')?.addEventListener('click', () => {
         const nameInput = container.querySelector('#combat-new-enemy-name');
         const bonusInput = container.querySelector('#combat-new-enemy-bonus');
@@ -1908,8 +1981,8 @@ export class SessionViewer {
       container.querySelector('#vtt-btn-close-combat-modal')?.addEventListener('click', close);
       container.querySelector('#vtt-btn-cancel-combat-modal')?.addEventListener('click', close);
 
-      container.querySelector('#vtt-btn-execute-combat-roll')?.addEventListener('click', () => {
-        this.executeCombatRollsAndStart();
+      container.querySelector('#vtt-btn-open-init-phase')?.addEventListener('click', () => {
+        this.openInitiativePhase();
         close();
       });
     };
@@ -1918,53 +1991,195 @@ export class SessionViewer {
     container.classList.remove('hidden');
   }
 
-  executeCombatRollsAndStart() {
-    soundFX.playDiceRoll();
+  // ============================================================
+  // INICIAÇÃO DO COMBATE (FASE DE INICIATIVAS MANUAIS)
+  // ============================================================
+  openInitiativePhase() {
+    soundFX.playSealBreak();
 
-    const newInitiativeList = [];
+    const list = [];
 
-    // 1. Rola iniciativa do agente
+    // 1. Adiciona o Agente local (sem rolar automaticamente)
     const agentBonus = (this.character?.attributes?.agi || 2) + (this.character?.trainedSkills?.includes('iniciativa') ? 2 : 0);
-    const agentRoll = Math.floor(Math.random() * 20) + 1;
-    newInitiativeList.push({
-      id: 'actor_' + Date.now() + '_agent',
+    list.push({
+      id: 'actor_' + this.user.id,
+      userId: this.user.id,
       name: this.character?.name || 'Agente',
-      initiative: agentRoll + agentBonus,
       bonus: agentBonus,
+      initiative: null, // Pendente!
+      rolled: false,
       isNpc: false,
       currentPv: this.character?.currentPv || 20,
       maxPv: 20
     });
 
-    // 2. Rola iniciativa dos inimigos cadastrados
+    // 2. Adiciona outros participantes conectados na sala
+    if (this.sync) {
+      for (const [uid, p] of this.sync.participants.entries()) {
+        if (uid !== this.user.id) {
+          list.push({
+            id: 'actor_' + uid,
+            userId: uid,
+            name: p.character?.name || p.user.name || 'Agente',
+            bonus: 2,
+            initiative: null, // Pendente!
+            rolled: false,
+            isNpc: false,
+            currentPv: p.character?.currentPv || 20,
+            maxPv: 20
+          });
+        }
+      }
+    }
+
+    // 3. Adiciona as ameaças/inimigos cadastrados pelo Mestre
     this.pendingEnemies.forEach((en, i) => {
-      const roll = Math.floor(Math.random() * 20) + 1;
-      newInitiativeList.push({
-        id: 'actor_' + Date.now() + '_npc_' + i,
+      list.push({
+        id: 'actor_npc_' + Date.now() + '_' + i,
         name: en.name,
-        initiative: roll + en.bonus,
         bonus: en.bonus,
+        initiative: null, // Pendente!
+        rolled: false,
         isNpc: true,
-        currentPv: en.pv,
-        maxPv: en.pv
+        currentPv: en.pv || 30,
+        maxPv: en.pv || 30
       });
     });
 
-    // 3. Ordena decrescente por iniciativa
-    newInitiativeList.sort((a, b) => b.initiative - a.initiative);
-
-    this.initiativeList = newInitiativeList;
-    this.activeTurnIndex = 0;
+    this.initiativeList = list;
     this.combatActive = true;
+    this.combatPhase = 'initiative'; // 'initiative' = esperando rolagens
+    this.combatRound = 1;
+    this.activeTurnIndex = 0;
 
     localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
     localStorage.setItem('paroxismo_combat_active', 'true');
+    localStorage.setItem('paroxismo_combat_phase', 'initiative');
+    localStorage.setItem('paroxismo_combat_round', '1');
+    localStorage.setItem('paroxismo_combat_turn', '0');
+
+    this.syncInitiative();
+
+    if (this.sync) {
+      this.sync.sendSystemEvent('⚔ COMBATE INICIADO! A fase de iniciativas começou. Todos os jogadores devem rolar a iniciativa de seus agentes!');
+    }
+  }
+
+  // ============================================================
+  // ROLAGEM MANUAL DA INICIATIVA PELO PRÓPRIO JOGADOR
+  // ============================================================
+  executeRollMyInitiative() {
+    const actor = this.initiativeList.find(a => a.userId === this.user.id) || 
+                  this.initiativeList.find(a => !a.isNpc && a.name === (this.character?.name || 'Agente'));
+
+    if (!actor || actor.rolled) return;
+
+    soundFX.playDiceRoll();
+
+    DiceAnimator.roll({
+      sides: 20,
+      label: 'Iniciativa: ' + actor.name
+    }).then(({ rolledValue }) => {
+      const bonus = actor.bonus || 0;
+      const total = rolledValue + bonus;
+      actor.initiative = total;
+      actor.rolled = true;
+
+      localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+
+      if (this.sync) {
+        this.sync.sendChatMessage(`🎲 [INICIATIVA] ${actor.name} rolou 1d20 (${rolledValue}) ${bonus >= 0 ? '+' + bonus : bonus} = TOTAL: ${total}!`, 'normal', 'public');
+        this.sync.sendInitiativeRoll(actor.id, total, rolledValue, bonus, actor.name);
+      }
+
+      this.renderInitiativeListOnly();
+      this.renderCenterCombatSummary();
+    });
+  }
+
+  // ============================================================
+  // MESTRE: ROLA INICIATIVA DE UM COMBATENTE ESPECÍFICO
+  // ============================================================
+  executeGmRollActorInitiative(actorId) {
+    const actor = this.initiativeList.find(a => a.id === actorId);
+    if (!actor || actor.rolled) return;
+
+    soundFX.playDiceRoll();
+
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const bonus = actor.bonus || 0;
+    const total = roll + bonus;
+
+    actor.initiative = total;
+    actor.rolled = true;
+
+    localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+
+    if (this.sync) {
+      this.sync.sendChatMessage(`🎲 [Mestre] Rolou Iniciativa para ${actor.name}: 1d20 (${roll}) ${bonus >= 0 ? '+' + bonus : bonus} = TOTAL: ${total}!`, 'normal', 'public');
+    }
+
+    this.syncInitiative();
+  }
+
+  // ============================================================
+  // MESTRE: ROLA DE TODOS OS PENDENTES DE UMA VEZ
+  // ============================================================
+  executeGmRollAllPending() {
+    const pendentes = this.initiativeList.filter(a => a.initiative === null);
+    if (pendentes.length === 0) return;
+
+    soundFX.playDiceRoll();
+
+    pendentes.forEach(actor => {
+      const roll = Math.floor(Math.random() * 20) + 1;
+      const bonus = actor.bonus || 0;
+      const total = roll + bonus;
+
+      actor.initiative = total;
+      actor.rolled = true;
+
+      if (this.sync) {
+        this.sync.sendChatMessage(`🎲 [Mestre] Rolou Iniciativa para ${actor.name}: 1d20 (${roll}) ${bonus >= 0 ? '+' + bonus : bonus} = TOTAL: ${total}!`, 'normal', 'public');
+      }
+    });
+
+    localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+    this.syncInitiative();
+  }
+
+  // ============================================================
+  // MESTRE: COMEÇA A RODADA DE TURNOS (ORDENA E ATIVA)
+  // ============================================================
+  startCombatTurns() {
+    if (this.initiativeList.length === 0) return;
+
+    // Se alguém ainda não tiver iniciativa, gera um valor fallback
+    this.initiativeList.forEach(a => {
+      if (a.initiative === null || a.initiative === undefined) {
+        const roll = Math.floor(Math.random() * 20) + 1;
+        a.initiative = roll + (a.bonus || 0);
+        a.rolled = true;
+      }
+    });
+
+    // Ordena decrescentemente por iniciativa
+    this.initiativeList.sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+    this.combatPhase = 'turns';
+    this.combatRound = 1;
+    this.activeTurnIndex = 0;
+
+    localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+    localStorage.setItem('paroxismo_combat_phase', 'turns');
+    localStorage.setItem('paroxismo_combat_round', '1');
+    localStorage.setItem('paroxismo_combat_turn', '0');
 
     this.syncInitiative();
 
     if (this.sync) {
       const first = this.initiativeList[0];
-      this.sync.sendSystemEvent(`O Mestre iniciou um combate! Iniciativas roladas. Primeiro a agir: ${first.name} (Iniciativa ${first.initiative})`);
+      this.sync.sendSystemEvent(`⚔ 1ª Rodada iniciada! Primeiro a agir: ${first.name} (Iniciativa ${first.initiative})!`);
     }
   }
 
@@ -1973,10 +2188,21 @@ export class SessionViewer {
     soundFX.playRuneClick();
 
     if (delta > 0) {
-      this.activeTurnIndex = (this.activeTurnIndex + 1) % this.initiativeList.length;
+      if (this.activeTurnIndex + 1 >= this.initiativeList.length) {
+        this.combatRound++;
+        this.activeTurnIndex = 0;
+        localStorage.setItem('paroxismo_combat_round', String(this.combatRound));
+        if (this.sync) {
+          this.sync.sendSystemEvent(`⚔ Rodada ${this.combatRound} iniciada!`);
+        }
+      } else {
+        this.activeTurnIndex++;
+      }
     } else {
-      this.activeTurnIndex = (this.activeTurnIndex - 1 + this.initiativeList.length) % this.initiativeList.length;
+      this.activeTurnIndex = Math.max(0, this.activeTurnIndex - 1);
     }
+
+    localStorage.setItem('paroxismo_combat_turn', String(this.activeTurnIndex));
 
     const current = this.initiativeList[this.activeTurnIndex];
     this.syncInitiative();
@@ -1995,8 +2221,9 @@ export class SessionViewer {
     if (!modal || !content) return;
 
     soundFX.playRuneClick();
-    content.innerHTML = '<div id="foundry-sheet-mount"></div>';
     modal.classList.remove('hidden');
+
+    content.innerHTML = '<div id="foundry-sheet-mount"></div>';
 
     // Monta a Ficha Completa
     new CharacterSheet('foundry-sheet-mount');
@@ -2017,7 +2244,6 @@ export class SessionViewer {
   // ============================================================
   // EXECUÇÃO DE ROLAGENS COM MOTOR 3D (THREE.JS + CANNON.JS)
   // ============================================================
-
   executeDockRoll() {
     const sides = this.selectedDiceType;
     const qty = this.diceQuantity;
@@ -2138,7 +2364,7 @@ export class SessionViewer {
 
     DiceAnimator.roll({
       sides: 20,
-      label: 'Rolagem Secreta do Mestre'
+      label: 'Rolagem Secreta (Mestre)'
     }).then(({ rolledValue }) => {
       const rollPayload = {
         label: 'Rolagem Secreta do Mestre',
@@ -2200,7 +2426,13 @@ export class SessionViewer {
 
   syncInitiative() {
     if (this.sync) {
-      this.sync.sendInitiativeUpdate(this.initiativeList, this.activeTurnIndex, this.combatActive);
+      this.sync.sendInitiativeUpdate(
+        this.initiativeList, 
+        this.activeTurnIndex, 
+        this.combatActive, 
+        this.combatRound, 
+        this.combatPhase
+      );
     }
     this.renderInitiativeListOnly();
     this.renderCenterCombatSummary();
@@ -2252,38 +2484,118 @@ export class SessionViewer {
     modalContainer.querySelector('#vtt-btn-modal-dismiss')?.addEventListener('click', closeHandler);
   }
 
-  closeHandoutModal() {
-    const modalContainer = this.container.querySelector('#vtt-handout-modal-container');
-    if (modalContainer) modalContainer.classList.add('hidden');
-  }
-
-  scrollChatToBottom() {
-    const feed = this.container.querySelector('#vtt-chat-feed');
-    if (feed) {
-      feed.scrollTop = feed.scrollHeight;
+  renderHeaderOnly() {
+    const header = this.container.querySelector('#vtt-header');
+    if (header) {
+      header.innerHTML = this.getHeaderHTML();
+      this.setupHeaderEvents();
     }
   }
 
-  renderChatFeedOnly() {
-    const feed = this.container.querySelector('#vtt-chat-feed');
-    if (feed) {
-      feed.innerHTML = this.getChatMessagesHTML();
+  setupHeaderEvents() {
+    const header = this.container.querySelector('#vtt-header');
+    if (!header) return;
+
+    header.querySelector('#vtt-btn-toggle-gm-mode')?.addEventListener('click', () => {
+      if (this.isGm) {
+        if (confirm('Deseja desativar o modo Mestre nesta sessão?')) {
+          this.isGm = false;
+          this.app?.setGmMode(false);
+          this.sync.isGm = false;
+          soundFX.playRuneClick();
+          this.render();
+        }
+      } else {
+        this.openGmPasswordModal();
+      }
+    });
+
+    header.querySelector('#vtt-btn-fullscreen')?.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+      soundFX.playRuneClick();
+    });
+
+    header.querySelector('#vtt-btn-exit')?.addEventListener('click', () => {
+      soundFX.playRuneClick();
+      if (this.sync) this.sync.disconnect();
+      window.location.hash = 'home';
+    });
+  }
+
+  renderCenterStageOnly() {
+    const stage = this.container.querySelector('#vtt-center-stage');
+    if (stage) {
+      stage.innerHTML = this.getCenterStageHTML();
+      this.setupCenterStageEvents();
     }
   }
 
-  renderInitiativeListOnly() {
-    const leftContent = this.container.querySelector('#vtt-left-content');
-    if (leftContent && this.activeLeftTab === 'iniciativa') {
-      leftContent.innerHTML = this.getInitiativeHTML();
-      this.setupEventListeners();
-    }
+  setupCenterStageEvents() {
+    const stage = this.container.querySelector('#vtt-center-stage');
+    if (!stage) return;
+
+    stage.querySelector('#vtt-btn-close-scene')?.addEventListener('click', () => {
+      this.cinematicScene = null;
+      if (this.sync) this.sync.sendScenePresentation(null, false);
+      this.renderCenterStageOnly();
+    });
+
+    stage.querySelector('#vtt-btn-edit-campaign-top')?.addEventListener('click', () => {
+      const name = prompt('Nome da Campanha:', this.sessionData.campaignName);
+      if (name && name.trim()) {
+        this.sessionData.campaignName = name.trim();
+        localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
+        if (this.sync) this.sync.sendSessionState({ campaignName: this.sessionData.campaignName });
+        this.renderHeaderOnly();
+        this.renderCenterStageOnly();
+      }
+    });
+
+    stage.querySelector('#vtt-btn-edit-tactical-notes')?.addEventListener('click', () => {
+      const notes = prompt('Diretriz Tática / Objetivo da Sessão:', this.sessionData.tacticalNotes);
+      if (notes !== null) {
+        this.sessionData.tacticalNotes = notes.trim();
+        localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
+        if (this.sync) this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
+        this.renderCenterStageOnly();
+      }
+    });
+
+    stage.querySelectorAll('.vtt-btn-roll-my-initiative').forEach(btn => {
+      btn.addEventListener('click', () => this.executeRollMyInitiative());
+    });
+    stage.querySelector('#vtt-btn-center-roll-all')?.addEventListener('click', () => this.executeGmRollAllPending());
+    stage.querySelector('#vtt-btn-center-start-turns')?.addEventListener('click', () => this.startCombatTurns());
+    stage.querySelector('#vtt-btn-center-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
+    stage.querySelector('#vtt-btn-center-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
+    stage.querySelector('#vtt-btn-center-init-combat')?.addEventListener('click', () => this.openCombatSetupModal());
+    stage.querySelector('#vtt-btn-center-add-handout')?.addEventListener('click', () => this.promptAddHandout());
+    
+    stage.querySelectorAll('.vtt-btn-view-handout').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hId = btn.dataset.id;
+        const handout = this.handouts.find(h => h.id === hId);
+        if (handout) this.openHandoutModal(handout);
+      });
+    });
   }
 
   renderCenterCombatSummary() {
     const box = this.container.querySelector('#vtt-center-combat-summary');
     if (box) {
       box.innerHTML = this.getCombatSummaryContentHTML();
-      this.setupEventListeners();
+      box.querySelectorAll('.vtt-btn-roll-my-initiative').forEach(btn => {
+        btn.addEventListener('click', () => this.executeRollMyInitiative());
+      });
+      box.querySelector('#vtt-btn-center-roll-all')?.addEventListener('click', () => this.executeGmRollAllPending());
+      box.querySelector('#vtt-btn-center-start-turns')?.addEventListener('click', () => this.startCombatTurns());
+      box.querySelector('#vtt-btn-center-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
+      box.querySelector('#vtt-btn-center-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
+      box.querySelector('#vtt-btn-center-init-combat')?.addEventListener('click', () => this.openCombatSetupModal());
     }
   }
 
@@ -2291,30 +2603,43 @@ export class SessionViewer {
     const box = this.container.querySelector('#vtt-center-handout-summary');
     if (box) {
       box.innerHTML = this.getHandoutSummaryContentHTML();
-      this.setupEventListeners();
+      box.querySelector('#vtt-btn-center-add-handout')?.addEventListener('click', () => this.promptAddHandout());
+      box.querySelectorAll('.vtt-btn-view-handout').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const hId = btn.dataset.id;
+          const handout = this.handouts.find(h => h.id === hId);
+          if (handout) this.openHandoutModal(handout);
+        });
+      });
     }
   }
 
-  renderCenterParticipantsSummary(participants) {
+  renderParticipantsSummaryOnly() {
     const box = this.container.querySelector('#vtt-center-participants-summary');
     if (box) {
+      const participants = this.sync ? Array.from(this.sync.participants.values()) : [];
       box.innerHTML = this.getParticipantsSummaryContentHTML(participants);
     }
   }
 
-  renderCenterStageOnly() {
-    const center = this.container.querySelector('#vtt-center-stage');
-    if (center) {
-      center.innerHTML = this.getCenterStageHTML();
+  renderLeftSidebarOnly() {
+    const aside = this.container.querySelector('#vtt-left-sidebar');
+    if (aside) {
+      aside.innerHTML = this.getLeftSidebarHTML();
       this.setupEventListeners();
     }
   }
 
-  renderLeftSidebarOnly() {
-    const left = this.container.querySelector('#vtt-left-sidebar');
-    if (left) {
-      left.innerHTML = this.getLeftSidebarHTML();
-      this.setupEventListeners();
+  renderInitiativeListOnly() {
+    if (this.activeLeftTab === 'iniciativa') {
+      this.renderLeftSidebarOnly();
+    }
+  }
+
+  renderChatFeedOnly() {
+    const feed = this.container.querySelector('#vtt-chat-feed');
+    if (feed) {
+      feed.innerHTML = this.getChatFeedHTML();
     }
   }
 
@@ -2322,45 +2647,36 @@ export class SessionViewer {
     const dock = this.container.querySelector('#vtt-dice-dock');
     if (dock) {
       dock.innerHTML = this.getDiceDockHTML();
-      this.setupEventListeners();
+      dock.querySelectorAll('.vtt-btn-dice-type').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this.selectedDiceType = parseInt(btn.dataset.sides, 10);
+          soundFX.playRuneClick();
+          this.renderDiceDockOnly();
+        });
+      });
+      dock.querySelector('#vtt-btn-qty-dec')?.addEventListener('click', () => {
+        if (this.diceQuantity > 1) { this.diceQuantity--; this.renderDiceDockOnly(); }
+      });
+      dock.querySelector('#vtt-btn-qty-inc')?.addEventListener('click', () => {
+        if (this.diceQuantity < 10) { this.diceQuantity++; this.renderDiceDockOnly(); }
+      });
+      dock.querySelector('#vtt-btn-mod-dec')?.addEventListener('click', () => {
+        this.diceModifier--; this.renderDiceDockOnly();
+      });
+      dock.querySelector('#vtt-btn-mod-inc')?.addEventListener('click', () => {
+        this.diceModifier++; this.renderDiceDockOnly();
+      });
+      dock.querySelector('#vtt-btn-roll-main')?.addEventListener('click', () => {
+        this.executeDockRoll();
+      });
     }
   }
 
-  renderHeaderOnly() {
-    const header = this.container.querySelector('#vtt-header');
-    if (header) {
-      header.innerHTML = this.getHeaderHTML();
-      this.setupEventListeners();
-    }
-  }
-
-  renderParticipantsListOnly(participants) {
-    const list = this.container.querySelector('#vtt-participants-list');
-    if (list && participants && participants.length > 0) {
-      list.innerHTML = participants.map(p => `
-        <div class="p-2 bg-black/40 border border-white/10 flex items-center justify-between">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="w-2 h-2 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : p.status === 'away' ? 'bg-amber-400' : 'bg-zinc-600'}"></span>
-            <div class="flex flex-col min-w-0">
-              <span class="font-bold text-white text-xs truncate">${this.escapeHTML(p.user?.name || 'Agente')}</span>
-              <span class="text-[9px] text-[#8e95a5] truncate">${this.escapeHTML(p.character?.name || '')} // ${this.escapeHTML(p.character?.concept || '')}</span>
-            </div>
-          </div>
-          ${p.isGm ? '<span class="text-[9px] text-[#e21b23] font-bold">✠ GM</span>' : ''}
-        </div>
-      `).join('');
-    }
-  }
-
-  updateTypingIndicator() {
-    const el = this.container.querySelector('#vtt-typing-indicator');
-    if (!el) return;
-    if (this.typingUsers.size === 0) {
-      el.textContent = '';
-    } else {
-      const names = Array.from(this.typingUsers.values()).join(', ');
-      el.textContent = `● ${names} está digitando...`;
-    }
+  scrollChatToBottom() {
+    requestAnimationFrame(() => {
+      const feed = this.container.querySelector('#vtt-chat-feed');
+      if (feed) feed.scrollTop = feed.scrollHeight;
+    });
   }
 
   escapeHTML(str) {

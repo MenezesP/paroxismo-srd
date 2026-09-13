@@ -26,7 +26,7 @@ import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v1
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v11';
 import { DiscordActivity } from './utils/discord-activity.js?v=release_v11';
 import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
-import { SessionViewer } from './components/session-viewer.js?v=sess_v5';
+import { SessionViewer } from './components/session-viewer.js?v=sess_v6';
 
 class App {
   constructor() {
@@ -160,6 +160,17 @@ class App {
   renderCurrentTab(params = {}) {
     const mainContent = document.getElementById('main-content');
     if (!mainContent) return;
+
+    if (this.currentTab !== 'mesa' && this.currentTab !== 'sessao') {
+      if (this.components.sessionViewer && typeof this.components.sessionViewer.destroy === 'function') {
+        try {
+          this.components.sessionViewer.destroy();
+          this.components.sessionViewer = null;
+        } catch (e) {
+          console.warn('Error destroying sessionViewer:', e);
+        }
+      }
+    }
 
     switch (this.currentTab) {
       case 'home':
@@ -2337,6 +2348,13 @@ class App {
   }
 
   renderSession(container, params = {}) {
+    if (this.components.sessionViewer && typeof this.components.sessionViewer.destroy === 'function') {
+      try {
+        this.components.sessionViewer.destroy();
+      } catch (e) {
+        console.warn('Error destroying sessionViewer:', e);
+      }
+    }
     container.innerHTML = `
       <div id="session-viewer-container" class="w-full"></div>
     `;

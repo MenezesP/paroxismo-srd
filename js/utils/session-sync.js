@@ -3,12 +3,43 @@
  * Comunicação bidirecional via WebSocket (ntfy.sh / Discord Activity)
  * Gerencia chat persistente, rolagens com visibilidade segura, iniciativa,
  * handouts e modo cinemático.
+ * 
+ * - Singleton de listener global para evitar disparos múltiplos
+ * - Janela de deduplicação e debounce de rolagens
+ * - Suporte à fase de iniciativa com rolagens individuais dos players e mestre
  */
 
 import { soundFX } from './sound-fx.js?v=sound_v2';
 
 export class SessionSync {
+  static activeInstance = null;
+  static _globalListenerInitialized = false;
+
+  /**
+   * Registra um listener global ÚNICO no window para evitar que múltiplas
+   * instâncias de SessionSync criem ouvintes duplicados no paroxismo:roll_broadcast
+   */
+  static initGlobalListener() {
+    if (SessionSync._globalListenerInitialized) return;
+    SessionSync._globalListenerInitialized = true;
+
+    window.addEventListener('paroxismo:roll_broadcast', (e) => {
+      if (e.detail && !e.detail._fromSession) {
+        if (SessionSync.activeInstance) {
+          SessionSync.activeInstance.handleGlobalRoll(e.detail);
+        }
+      }
+    });
+  }
+
   constructor(sessionId, user, character, isGm = false) {
+    // Se já havia uma instância anterior ativa nesta aba, desconecta com segurança
+    if (SessionSync.activeInstance && SessionSync.activeInstance !== this) {
+      try { SessionSync.activeInstance.disconnect(); } catch (e) {}
+    }
+    SessionSync.activeInstance = this;
+    SessionSync.initGlobalListener();
+
     this.sessionId = sessionId || 'paroxismo_mesa_oficial';
     this.user = user || { id: 'anon_' + Math.random().toString(36).slice(2, 7), name: 'Agente' };
     this.character = character || { name: 'Agente do Avesso' };
@@ -25,6 +56,7 @@ export class SessionSync {
       chat: [],
       roll: [],
       initiative: [],
+      initiative_roll: [],
       handout: [],
       scene: [],
       presence: [],
@@ -36,6 +68,8 @@ export class SessionSync {
     // Registro de participantes ativos { [userId]: { user, character, isGm, lastSeen, status } }
     this.participants = new Map();
     this._seenIds = new Set();
+    this._lastGlobalRollSig = null;
+    this._lastGlobalRollTime = 0;
   }
 
   sanitizeTopic(id) {
@@ -46,6 +80,30 @@ export class SessionSync {
       hash |= 0;
     }
     return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Recebe disparos de rolagem do dossiê com debounce rígido para eliminar duplicações
+   */
+  handleGlobalRoll(detail) {
+    if (!detail) return;
+    const sig = `${detail.label || ''}_${detail.result}_${detail.details || ''}`;
+    const now = Date.now();
+    if (this._lastGlobalRollSig === sig && (now - this._lastGlobalRollTime) < 1500) {
+      return; // Ignora duplicação imediata
+    }
+    this._lastGlobalRollSig = sig;
+    this._lastGlobalRollTime = now;
+
+    this.sendDiceRoll({
+      label: detail.label || 'Rolagem do Dossiê',
+      formula: detail.details || '1d20',
+      rolls: [detail.result],
+      total: detail.result,
+      isCrit: Boolean(detail.isCrit),
+      isFumble: Boolean(detail.isFumble),
+      visibility: 'public'
+    });
   }
 
   connect() {
@@ -89,24 +147,6 @@ export class SessionSync {
       this.ws.onerror = (err) => {
         console.warn('[SessionSync] WebSocket erro:', err);
       };
-
-      // Escuta rolagens disparadas globalmente pela Ficha de Personagem ou Dado Rápido
-      if (!this._globalRollListener) {
-        this._globalRollListener = (e) => {
-          if (e.detail && !e.detail._fromSession) {
-            this.sendDiceRoll({
-              label: e.detail.label || 'Rolagem do Dossiê',
-              formula: e.detail.details || '1d20',
-              rolls: [e.detail.result],
-              total: e.detail.result,
-              isCrit: Boolean(e.detail.isCrit),
-              isFumble: Boolean(e.detail.isFumble),
-              visibility: 'public'
-            });
-          }
-        };
-        window.addEventListener('paroxismo:roll_broadcast', this._globalRollListener);
-      }
     } catch (e) {
       console.warn('[SessionSync] Falha ao instanciar WebSocket:', e);
     }
@@ -114,9 +154,8 @@ export class SessionSync {
 
   disconnect() {
     this.stopHeartbeat();
-    if (this._globalRollListener) {
-      window.removeEventListener('paroxismo:roll_broadcast', this._globalRollListener);
-      this._globalRollListener = null;
+    if (SessionSync.activeInstance === this) {
+      SessionSync.activeInstance = null;
     }
     if (this.ws) {
       try {
@@ -148,12 +187,9 @@ export class SessionSync {
   cleanStaleParticipants() {
     const now = Date.now();
     let changed = false;
-    for (const [userId, participant] of this.participants.entries()) {
-      if (now - participant.lastSeen > 45000) {
-        participant.status = 'offline';
-        changed = true;
-      } else if (now - participant.lastSeen > 25000 && participant.status === 'online') {
-        participant.status = 'away';
+    for (const [id, p] of this.participants.entries()) {
+      if (id !== this.user.id && (now - p.lastSeen) > 45000) {
+        this.participants.delete(id);
         changed = true;
       }
     }
@@ -162,10 +198,13 @@ export class SessionSync {
     }
   }
 
+  // ----------------------------------------------------
+  // EVENT SUBSCRIPTION (PUB/SUB INTERNO)
+  // ----------------------------------------------------
   on(event, callback) {
-    if (this.listeners[event]) {
-      this.listeners[event].push(callback);
-    }
+    if (!this.listeners[event]) this.listeners[event] = [];
+    this.listeners[event].push(callback);
+    return () => this.off(event, callback);
   }
 
   off(event, callback) {
@@ -188,7 +227,7 @@ export class SessionSync {
       type,
       sessionId: this.sessionId,
       senderId: this.user.id,
-      senderName: this.user.global_name || this.user.username || this.user.name || 'Agente',
+      senderName: this.user.global_name || this.user.username || this.user.name || (this.isGm ? 'Condutor' : 'Agente'),
       senderAvatar: this.user.avatar || null,
       characterName: this.character?.name || 'Agente',
       isGm: this.isGm,
@@ -261,11 +300,8 @@ export class SessionSync {
 
   // 4. Rolagem de Dados com Segurança
   sendDiceRoll(rollData) {
-    // rollData: { label, formula, rolls, modifier, total, isCrit, isFumble, visibility }
     const visibility = rollData.visibility || 'public';
     
-    // Se a rolagem for Oculta (blind) e enviada por quem não quer vazar dados para jogadores normais:
-    // O payload geral transmitirá apenas os metadados de que houve rolagem oculta.
     let payload = {
       id: 'roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       label: rollData.label || 'Rolagem de Dados',
@@ -279,22 +315,34 @@ export class SessionSync {
     };
 
     if (visibility === 'blind') {
-      // Se for rolagem oculta, guardamos o valor original no GM mas no broadcast enviamos mascarado
       payload.blindTotal = rollData.total;
       payload.blindFormula = rollData.formula;
-      // Para quem não for o mestre, o total virá nulo
       payload.isMasked = true;
     }
 
     return this.broadcast('roll', payload);
   }
 
-  // 5. Iniciativa (apenas Mestre ou jogador com permissão)
-  sendInitiativeUpdate(initiativeList, activeIndex = 0, combatActive = false) {
+  // 5. Iniciativa (Atualização de lista ou transição de fase/rodada)
+  sendInitiativeUpdate(initiativeList, activeIndex = 0, combatActive = false, round = 1, phase = 'turns') {
     return this.broadcast('initiative', {
       list: initiativeList,
       activeIndex,
       combatActive,
+      round,
+      phase,
+      updatedAt: Date.now()
+    });
+  }
+
+  // 5.1 Rolagem de Iniciativa Individual de um Agente ou Monstro
+  sendInitiativeRoll(actorId, initiative, rawRoll, bonus, actorName) {
+    return this.broadcast('initiative_roll', {
+      actorId,
+      initiative,
+      rawRoll,
+      bonus,
+      actorName,
       updatedAt: Date.now()
     });
   }
@@ -302,24 +350,25 @@ export class SessionSync {
   // 6. Handout Compartilhado
   sendHandout(handoutData, action = 'show') {
     return this.broadcast('handout', {
-      action, // 'show' ou 'close'
+      action, // 'show', 'hide'
       handout: handoutData
     });
   }
 
-  // 7. Cena Cinemática
+  // 7. Apresentação Cinemática de Cena
   sendScenePresentation(sceneData, active = true) {
     return this.broadcast('scene', {
       active,
-      scene: sceneData // { title, url, description }
+      scene: sceneData // { title, url, description, mood }
     });
   }
 
-  // 8. Evento do Sistema
-  sendSystemEvent(message) {
+  // 8. Mensagem de Sistema / Evento Litúrgico
+  sendSystemEvent(eventText) {
     return this.broadcast('system', {
       id: 'sys_' + Date.now(),
-      message
+      text: eventText,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     });
   }
 
@@ -377,7 +426,6 @@ export class SessionSync {
       
       // Checagem de visibilidade privada / sussurro
       if (p.visibility === 'private_gm') {
-        // Apenas o autor e o Mestre podem ler
         if (!isMe && !this.isGm) return;
       }
       if (p.visibility === 'gm_only' && !this.isGm) {
@@ -409,17 +457,13 @@ export class SessionSync {
     if (msg.type === 'roll' && msg.payload) {
       let r = { ...msg.payload };
 
-      // Checagem de segurança para rolagens
       if (r.visibility === 'gm_only' && !this.isGm) {
-        return; // Não exibe para jogadores
+        return;
       }
       if (r.visibility === 'private_gm') {
-        if (!isMe && !this.isGm) {
-          return;
-        }
+        if (!isMe && !this.isGm) return;
       }
       if (r.visibility === 'blind') {
-        // Se for rolagem oculta e quem está lendo NÃO for o Mestre nem o autor:
         if (!this.isGm && !isMe) {
           r.isMasked = true;
           r.total = null;
@@ -446,9 +490,15 @@ export class SessionSync {
       return;
     }
 
-    // 5. Iniciativa
+    // 5. Iniciativa (Geral)
     if (msg.type === 'initiative' && msg.payload) {
       this.triggerListeners('initiative', msg.payload);
+      return;
+    }
+
+    // 5.1 Rolagem Individual de Iniciativa
+    if (msg.type === 'initiative_roll' && msg.payload) {
+      this.triggerListeners('initiative_roll', msg.payload);
       return;
     }
 
@@ -463,19 +513,13 @@ export class SessionSync {
 
     // 7. Cena Cinemática
     if (msg.type === 'scene' && msg.payload) {
-      if (!isMe) {
-        soundFX.playPactOfDemiurge();
-      }
       this.triggerListeners('scene', msg.payload);
       return;
     }
 
     // 8. Evento do Sistema
     if (msg.type === 'system' && msg.payload) {
-      this.triggerListeners('system', {
-        ...msg.payload,
-        timestamp: msg.timestamp
-      });
+      this.triggerListeners('system', msg.payload);
       return;
     }
 
