@@ -15,11 +15,12 @@
  */
 
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
-import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
+import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
 import { SessionSync } from '../utils/session-sync.js?v=sess_v3';
 import { CharacterSheet } from './character-sheet.js?v=release_v11';
 import { RULES_DATA } from '../data/rules.js';
+import { SKILLS_DATA } from '../data/skills-origins.js';
 
 export class SessionViewer {
   constructor(containerId, app) {
@@ -344,6 +345,7 @@ export class SessionViewer {
         <div id="vtt-handout-modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
         <div id="vtt-gm-auth-modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
         <div id="vtt-combat-modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
+        <div id="vtt-generic-modal-container" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
         
         <!-- MODAL DA FICHA DE PERSONAGEM COMPLETA (POPUP FOUNDRY STYLE) -->
         <div id="vtt-sheet-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md">
@@ -645,12 +647,37 @@ export class SessionViewer {
     const weapons = Array.isArray(c.customWeapons) ? c.customWeapons : [];
     const rituals = Array.isArray(c.customRituals) ? c.customRituals : [];
     
+    // Cálculo Dinâmico de PV Máximo e PE Máximo conforme Classe e Nível
+    let baseInitialPv = 20;
+    let baseGainPv = 4;
+    if (c.classId === 'combate') { baseInitialPv = 20; baseGainPv = 4; }
+    else if (c.classId === 'flagelador') { baseInitialPv = 18; baseGainPv = 4; }
+    else if (['investigador', 'tatico', 'infiltrador', 'duelista', 'receptaculo'].includes(c.classId)) { baseInitialPv = 16; baseGainPv = 3; }
+    else if (c.classId === 'metamaturgo') { baseInitialPv = 14; baseGainPv = 3; }
+    else if (['ocultista', 'liturgista'].includes(c.classId)) { baseInitialPv = 12; baseGainPv = 2; }
+    const vig = attrs.vig ?? 2;
+    const level = c.level || 1;
+    const maxPv = Math.max(1, (baseInitialPv + vig) + (level - 1) * (baseGainPv + vig));
+
+    let baseInitialPe = 2;
+    let baseGainPe = 1;
+    if (c.classId === 'combate') { baseInitialPe = 2; baseGainPe = 1; }
+    else if (c.classId === 'infiltrador') { baseInitialPe = 3; baseGainPe = 2; }
+    else if (['investigador', 'tatico', 'metamaturgo', 'flagelador'].includes(c.classId)) { baseInitialPe = 4; baseGainPe = 2; }
+    else if (['duelista', 'receptaculo'].includes(c.classId)) { baseInitialPe = 5; baseGainPe = 2; }
+    else if (['ocultista', 'liturgista'].includes(c.classId)) { baseInitialPe = 6; baseGainPe = 3; }
+    const pre = attrs.pre ?? 1;
+    const maxPe = Math.max(1, (baseInitialPe + pre) + (level - 1) * (baseGainPe + pre));
+
+    const currentPv = Math.max(0, Math.min(maxPv, (typeof c.currentPv === 'number' && !isNaN(c.currentPv)) ? c.currentPv : maxPv));
+    const currentPe = Math.max(0, Math.min(maxPe, (typeof c.currentPe === 'number' && !isNaN(c.currentPe)) ? c.currentPe : maxPe));
+
     // Cálculo de Defesa Passiva real
     let armorBonus = 0;
-    if (c.protectionId === 'colete') armorBonus = 2;
-    else if (c.protectionId === 'pesada') armorBonus = 4;
+    if (c.protectionId === 'colete' || c.protectionId === 'colete_leve') armorBonus = 2;
+    else if (c.protectionId === 'pesada' || c.protectionId === 'colete_pesado') armorBonus = 5;
     else armorBonus = 1; // jaqueta padrão
-    const passiveDef = 10 + (attrs.agi || 0) + armorBonus;
+    const passiveDef = 10 + (attrs.agi || 0) + armorBonus + (c.classId === 'combate' ? (attrs.vig || 0) : 0);
 
     return `
       <div class="flex flex-col gap-3 min-h-0">
@@ -671,28 +698,28 @@ export class SessionViewer {
           <div class="p-2 bg-black/60 border border-[#e21b23]/40 flex flex-col gap-1">
             <div class="flex justify-between items-center text-[9px] text-[#ff333d] font-bold">
               <span>VIDA (PV)</span>
-              <span>${c.currentPv || 20}/20</span>
+              <span>${currentPv}/${maxPv}</span>
             </div>
             <div class="w-full h-1.5 bg-black/80 overflow-hidden">
-              <div class="h-full bg-[#e21b23]" style="width: ${Math.min(100, Math.round(((c.currentPv || 20) / 20) * 100))}%;"></div>
+              <div class="h-full bg-[#e21b23] transition-all duration-150" style="width: ${Math.min(100, Math.max(0, Math.round((currentPv / maxPv) * 100)))}%;"></div>
             </div>
             <div class="flex items-center justify-end gap-1 pt-1">
-              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#e21b23] text-xs text-white cursor-pointer" data-stat="pv" data-delta="-1">-1</button>
-              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#e21b23] text-xs text-white cursor-pointer" data-stat="pv" data-delta="1">+1</button>
+              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#e21b23] text-xs text-white cursor-pointer" data-stat="pv" data-delta="-1" data-max="${maxPv}">-1</button>
+              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#e21b23] text-xs text-white cursor-pointer" data-stat="pv" data-delta="1" data-max="${maxPv}">+1</button>
             </div>
           </div>
 
           <div class="p-2 bg-black/60 border border-[#06b6d4]/40 flex flex-col gap-1">
             <div class="flex justify-between items-center text-[9px] text-[#06b6d4] font-bold">
               <span>ESFORÇO (PE)</span>
-              <span>${c.currentPe || 3}/3</span>
+              <span>${currentPe}/${maxPe}</span>
             </div>
             <div class="w-full h-1.5 bg-black/80 overflow-hidden">
-              <div class="h-full bg-[#06b6d4]" style="width: ${Math.min(100, Math.round(((c.currentPe || 3) / 3) * 100))}%;"></div>
+              <div class="h-full bg-[#06b6d4] transition-all duration-150" style="width: ${Math.min(100, Math.max(0, Math.round((currentPe / maxPe) * 100)))}%;"></div>
             </div>
             <div class="flex items-center justify-end gap-1 pt-1">
-              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#06b6d4] text-xs text-white cursor-pointer" data-stat="pe" data-delta="-1">-1</button>
-              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#06b6d4] text-xs text-white cursor-pointer" data-stat="pe" data-delta="1">+1</button>
+              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#06b6d4] text-xs text-white cursor-pointer" data-stat="pe" data-delta="-1" data-max="${maxPe}">-1</button>
+              <button class="vtt-btn-adjust-stat px-1.5 py-0.2 bg-black border border-white/20 hover:border-[#06b6d4] text-xs text-white cursor-pointer" data-stat="pe" data-delta="1" data-max="${maxPe}">+1</button>
             </div>
           </div>
         </div>
@@ -724,10 +751,10 @@ export class SessionViewer {
                       <span class="text-[9px] text-[#06b6d4] font-mono">${w.dmgDice || '1d8'} (${w.crit || '19/x2'})</span>
                     </div>
                     <div class="grid grid-cols-2 gap-1.5">
-                      <button class="vtt-btn-weapon-attack py-1 bg-black/80 hover:bg-[#e21b23]/20 border border-white/20 hover:border-[#e21b23] text-[9px] font-bold text-white transition-all cursor-pointer" data-name="${w.name}" data-mod="${hitMod}">
-                        🎲 ATACAR (+${hitMod})
+                      <button class="vtt-btn-weapon-attack py-1 bg-black/80 hover:bg-[#e21b23]/20 border border-white/20 hover:border-[#e21b23] text-[9px] font-bold text-white transition-all cursor-pointer" data-name="${this.escapeHTML(w.name)}" data-mod="${hitMod}">
+                        🎲 ATACAR (${hitMod >= 0 ? '+' + hitMod : hitMod})
                       </button>
-                      <button class="vtt-btn-weapon-damage py-1 bg-black/80 hover:bg-[#06b6d4]/20 border border-white/20 hover:border-[#06b6d4] text-[9px] font-bold text-[#06b6d4] transition-all cursor-pointer" data-name="${w.name}" data-dmg="${w.dmgDice || '1d8'}">
+                      <button class="vtt-btn-weapon-damage py-1 bg-black/80 hover:bg-[#06b6d4]/20 border border-white/20 hover:border-[#06b6d4] text-[9px] font-bold text-[#06b6d4] transition-all cursor-pointer" data-name="${this.escapeHTML(w.name)}" data-dmg="${w.dmgDice || '1d8'}">
                         ⚔ DANO (${w.dmgDice || '1d8'})
                       </button>
                     </div>
@@ -751,7 +778,7 @@ export class SessionViewer {
                     <span class="font-serif font-bold text-[#06b6d4] truncate">${this.escapeHTML(r.name)}</span>
                     <span class="text-[9px] text-[#8e95a5]">${r.cost || '1 PE'} // ${r.range || 'Curto'}</span>
                   </div>
-                  <button class="vtt-btn-cast-ritual px-2 py-1 bg-[#06b6d4]/20 hover:bg-[#06b6d4] text-[#06b6d4] hover:text-black border border-[#06b6d4] text-[9px] font-bold transition-all cursor-pointer flex-shrink-0" data-name="${r.name}" data-cost="${r.cost || '1 PE'}">
+                  <button class="vtt-btn-cast-ritual px-2 py-1 bg-[#06b6d4]/20 hover:bg-[#06b6d4] text-[#06b6d4] hover:text-black border border-[#06b6d4] text-[9px] font-bold transition-all cursor-pointer flex-shrink-0" data-name="${this.escapeHTML(r.name)}" data-cost="${r.cost || '1 PE'}">
                     🔮 CONJURAR (-${r.cost || '1 PE'})
                   </button>
                 </div>
@@ -773,22 +800,26 @@ export class SessionViewer {
           </div>
         </div>
 
-        <!-- PERÍCIAS (ROLAGENS RÁPIDAS) -->
+        <!-- PERÍCIAS (ROLAGENS RÁPIDAS COM SKILLS_DATA OFICIAL) -->
         <div class="flex flex-col gap-1 pt-1 flex-1 min-h-0">
-          <span class="text-[9px] text-[#8e95a5] font-bold uppercase tracking-wider">PERÍCIAS (1-CLIQUE)</span>
-          <div class="flex flex-col gap-1 overflow-y-auto max-h-48 pr-1 font-mono">
-            ${(RULES_DATA.SKILLS || []).slice(0, 16).map(skill => {
-              const isTrained = c.trainedSkills?.includes(skill.id);
-              const attrVal = attrs[skill.attr] || 0;
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] text-[#8e95a5] font-bold uppercase tracking-wider">PERÍCIAS (1-CLIQUE)</span>
+            <span class="text-[9px] text-white/40 font-mono">${(SKILLS_DATA || []).length} Perícias</span>
+          </div>
+          <div class="flex flex-col gap-1 overflow-y-auto max-h-56 pr-1 font-mono custom-scrollbar">
+            ${(SKILLS_DATA || []).map(skill => {
+              const isTrained = Array.isArray(c.trainedSkills) && c.trainedSkills.includes(skill.id);
+              const attrKey = (skill.attr || 'for').toLowerCase();
+              const attrVal = attrs[attrKey] ?? attrs[skill.attr] ?? 0;
               const bonus = attrVal + (isTrained ? 2 : 0);
               return `
-                <button class="vtt-btn-quick-skill w-full p-1 px-2 bg-black/40 hover:bg-white/10 border border-white/5 hover:border-white/20 flex items-center justify-between text-left transition-all cursor-pointer" data-name="${skill.name}" data-mod="${bonus}">
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] text-white/40">🎲</span>
-                    <span class="text-[11px] ${isTrained ? 'text-white font-bold' : 'text-[#8e95a5]'}">${skill.name}</span>
-                    <span class="text-[8px] text-white/30 uppercase">(${skill.attr})</span>
+                <button class="vtt-btn-quick-skill w-full p-1.5 px-2 bg-black/40 hover:bg-[#e21b23]/10 border border-white/5 hover:border-[#e21b23]/40 flex items-center justify-between text-left transition-all cursor-pointer group" data-name="${this.escapeHTML(skill.name)}" data-mod="${bonus}">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-[10px] text-white/40 group-hover:text-[#e21b23] transition-colors">🎲</span>
+                    <span class="text-[11px] truncate ${isTrained ? 'text-white font-bold' : 'text-[#8e95a5] group-hover:text-white'}">${this.escapeHTML(skill.name)}</span>
+                    <span class="text-[8px] text-white/30 uppercase flex-shrink-0">(${skill.attr})</span>
                   </div>
-                  <span class="text-[10px] font-bold ${isTrained ? 'text-[#06b6d4]' : 'text-white/60'}">
+                  <span class="text-[10px] font-bold font-mono flex-shrink-0 ${isTrained ? 'text-[#06b6d4]' : 'text-white/60'}">
                     ${bonus >= 0 ? '+' + bonus : bonus}
                   </span>
                 </button>
@@ -1436,19 +1467,7 @@ export class SessionViewer {
     });
 
     // 3. Botão de Senha do Mestre (Auth)
-    root.querySelector('#vtt-btn-toggle-gm-mode')?.addEventListener('click', () => {
-      if (this.isGm) {
-        if (confirm('Deseja desativar o modo Mestre nesta sessão?')) {
-          this.isGm = false;
-          this.app?.setGmMode(false);
-          this.sync.isGm = false;
-          soundFX.playRuneClick();
-          this.render();
-        }
-      } else {
-        this.openGmPasswordModal();
-      }
-    });
+    root.querySelector('#vtt-btn-toggle-gm-mode')?.addEventListener('click', () => this.handleToggleGmMode());
 
     // 4. Botão de Tela Cheia
     root.querySelector('#vtt-btn-fullscreen')?.addEventListener('click', () => {
@@ -1559,36 +1578,12 @@ export class SessionViewer {
 
     // Botões para Iniciar / Encerrar Combate
     const openCombatSetup = () => this.openCombatSetupModal();
-    root.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => {
-      if (this.combatActive) {
-        if (confirm('Deseja realmente finalizar o combate?')) {
-          this.combatActive = false;
-          this.combatPhase = 'initiative';
-          localStorage.setItem('paroxismo_combat_active', 'false');
-          localStorage.setItem('paroxismo_combat_phase', 'initiative');
-          this.syncInitiative();
-          if (this.sync) this.sync.sendSystemEvent('O Mestre finalizou o combate.');
-        }
-      } else {
-        openCombatSetup();
-      }
-    });
+    root.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => this.handleToggleCombat());
     root.querySelector('#vtt-btn-init-combat-empty')?.addEventListener('click', openCombatSetup);
     root.querySelector('#vtt-btn-center-init-combat')?.addEventListener('click', openCombatSetup);
     root.querySelector('#vtt-btn-gm-init-combat')?.addEventListener('click', openCombatSetup);
 
-    root.querySelector('#vtt-btn-clear-initiative')?.addEventListener('click', () => {
-      if (confirm('Deseja limpar todos os combatentes da iniciativa?')) {
-        this.initiativeList = [];
-        this.activeTurnIndex = 0;
-        this.combatActive = false;
-        this.combatPhase = 'initiative';
-        localStorage.removeItem('paroxismo_initiative_list_v1');
-        localStorage.setItem('paroxismo_combat_active', 'false');
-        localStorage.setItem('paroxismo_combat_phase', 'initiative');
-        this.syncInitiative();
-      }
-    });
+    root.querySelector('#vtt-btn-clear-initiative')?.addEventListener('click', () => this.handleClearInitiative());
 
     // Remover combatente individual
     root.querySelectorAll('.vtt-btn-remove-actor').forEach(btn => {
@@ -1631,40 +1626,10 @@ export class SessionViewer {
     root.querySelector('#vtt-btn-center-add-handout')?.addEventListener('click', promptAddHandout);
 
     // 22. Edição de Dados da Campanha e Anotações pelo Mestre
-    const editCampaign = () => {
-      const name = prompt('Nome da Campanha:', this.sessionData.campaignName);
-      if (name && name.trim()) {
-        const num = prompt('Número da Sessão:', this.sessionData.sessionNumber) || this.sessionData.sessionNumber;
-        this.sessionData.campaignName = name.trim();
-        this.sessionData.sessionNumber = parseInt(num, 10) || 1;
-        localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
-        localStorage.setItem('paroxismo_session_num', String(this.sessionData.sessionNumber));
-        if (this.sync) {
-          this.sync.sendSessionState({
-            campaignName: this.sessionData.campaignName,
-            sessionNumber: this.sessionData.sessionNumber
-          });
-        }
-        this.renderHeaderOnly();
-        this.renderCenterStageOnly();
-      }
-    };
-    root.querySelector('#vtt-btn-edit-campaign-top')?.addEventListener('click', editCampaign);
-    root.querySelector('#vtt-btn-gm-campaign-edit')?.addEventListener('click', editCampaign);
-
-    const editTacticalNotes = () => {
-      const notes = prompt('Diretriz Tática / Objetivo da Sessão:', this.sessionData.tacticalNotes);
-      if (notes !== null) {
-        this.sessionData.tacticalNotes = notes.trim();
-        localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
-        if (this.sync) {
-          this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
-        }
-        this.renderCenterStageOnly();
-      }
-    };
-    root.querySelector('#vtt-btn-edit-tactical-notes')?.addEventListener('click', editTacticalNotes);
-    root.querySelector('#vtt-btn-gm-notes')?.addEventListener('click', editTacticalNotes);
+    root.querySelector('#vtt-btn-edit-campaign-top')?.addEventListener('click', () => this.handleEditCampaign());
+    root.querySelector('#vtt-btn-gm-campaign-edit')?.addEventListener('click', () => this.handleEditCampaign());
+    root.querySelector('#vtt-btn-edit-tactical-notes')?.addEventListener('click', () => this.handleEditTacticalNotes());
+    root.querySelector('#vtt-btn-gm-notes')?.addEventListener('click', () => this.handleEditTacticalNotes());
 
     // 23. Ações do Painel do Mestre
     root.querySelector('#vtt-btn-gm-scene')?.addEventListener('click', () => this.promptGmScene());
@@ -1679,12 +1644,7 @@ export class SessionViewer {
       this.renderHeaderOnly();
     });
 
-    root.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => {
-      const msg = prompt('Mensagem do Sistema para todos:');
-      if (msg && msg.trim() && this.sync) {
-        this.sync.sendSystemEvent(msg.trim());
-      }
-    });
+    root.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => this.handleBroadcastSystemMsg());
 
     root.querySelector('#vtt-btn-close-scene')?.addEventListener('click', () => {
       this.cinematicScene = null;
@@ -2158,24 +2118,21 @@ export class SessionViewer {
 
     DiceAnimator.roll({
       sides: sides === 100 ? 10 : sides,
+      quantity: qty,
       label: label
-    }).then(({ rolledValue, isCrit, isFumble }) => {
-      let rolls = [rolledValue];
-      for (let i = 1; i < qty; i++) {
-        rolls.push(Math.floor(Math.random() * sides) + 1);
-      }
-
-      const sumRolls = rolls.reduce((a, b) => a + b, 0);
+    }).then(({ rolledValue, rolls, sum, isCrit, isFumble }) => {
+      const actualRolls = (Array.isArray(rolls) && rolls.length > 0) ? rolls : [rolledValue];
+      const sumRolls = (typeof sum === 'number') ? sum : actualRolls.reduce((a, b) => a + b, 0);
       const total = sumRolls + mod;
 
       const rollPayload = {
         label,
         formula: `${qty}d${sides}${mod ? (mod >= 0 ? '+' + mod : mod) : ''}`,
-        rolls,
+        rolls: actualRolls,
         modifier: mod,
         total,
-        isCrit: Boolean(isCrit || (sides === 20 && rolls.includes(20))),
-        isFumble: Boolean(isFumble || (sides === 20 && rolls.includes(1))),
+        isCrit: Boolean(isCrit || (sides === 20 && actualRolls.includes(20))),
+        isFumble: Boolean(isFumble || (sides === 20 && actualRolls.every(r => r === 1))),
         visibility: vis
       };
 
@@ -2217,24 +2174,29 @@ export class SessionViewer {
   executeWeaponDamageRoll(weaponName, formula = '1d8') {
     soundFX.playDiceRoll();
 
-    // Interpreta fórmula ex: "1d8+2"
+    // Interpreta fórmula ex: "2d6+2" ou "1d8"
+    let qty = 1;
     let sides = 8;
     let mod = 0;
     const match = formula.match(/(\d+)d(\d+)([+-]\d+)?/i);
     if (match) {
+      qty = parseInt(match[1], 10) || 1;
       sides = parseInt(match[2], 10) || 8;
       if (match[3]) mod = parseInt(match[3], 10) || 0;
     }
 
     DiceAnimator.roll({
       sides: sides,
+      quantity: qty,
       label: `Dano (${weaponName})`
-    }).then(({ rolledValue }) => {
-      const total = rolledValue + mod;
+    }).then(({ rolledValue, rolls, sum }) => {
+      const actualRolls = (Array.isArray(rolls) && rolls.length > 0) ? rolls : [rolledValue];
+      const sumRolls = (typeof sum === 'number') ? sum : actualRolls.reduce((a, b) => a + b, 0);
+      const total = sumRolls + mod;
       const rollPayload = {
         label: `Dano (${weaponName})`,
         formula: formula,
-        rolls: [rolledValue],
+        rolls: actualRolls,
         modifier: mod,
         total,
         isCrit: false,
@@ -2249,12 +2211,18 @@ export class SessionViewer {
   }
 
   executeCastRitual(ritualName, cost = 1) {
-    if ((this.character.currentPe || 0) < cost) {
-      alert(`Pontos de Esforço insuficientes para conjurar ${ritualName}! Exige ${cost} PE.`);
+    const curPe = (typeof this.character.currentPe === 'number' && !isNaN(this.character.currentPe)) ? this.character.currentPe : 3;
+    if (curPe < cost) {
+      this.showConfirmModal({
+        title: 'ESFORÇO INSUFICIENTE',
+        message: `Pontos de Esforço insuficientes para conjurar ${ritualName}! Exige ${cost} PE (disponível: ${curPe} PE).`,
+        confirmText: 'ENTENDIDO',
+        cancelText: ''
+      });
       return;
     }
 
-    this.character.currentPe -= cost;
+    this.character.currentPe = Math.max(0, curPe - cost);
     saveCharacterDossier(this.character);
     if (typeof soundFX.playSealBreak === 'function') soundFX.playSealBreak();
     else soundFX.playRuneClick();
@@ -2290,45 +2258,65 @@ export class SessionViewer {
     });
   }
 
-  promptGmScene() {
-    const title = prompt('Título da Cena:', 'O Altar do Avesso');
-    if (!title) return;
-    const url = prompt('URL ou Caminho da Imagem da Cena:', 'assets/images/hero_banner.jpg') || 'assets/images/hero_banner.jpg';
-    const desc = prompt('Descrição atmosférica da cena:') || '';
+  async promptGmScene() {
+    const res = await this.showPromptModal({
+      title: 'APRESENTAR CENA CINEMÁTICA',
+      description: 'Projete uma cena atmosférica com banner e narrativa no palco central de todos os agentes.',
+      fields: [
+        { id: 'title', label: 'Título da Cena', value: this.cinematicScene?.title || 'O Altar do Avesso', placeholder: 'Ex: A Cripta Subterrânea' },
+        { id: 'url', label: 'URL ou Caminho da Imagem', value: this.cinematicScene?.url || 'assets/images/hero_banner.jpg', placeholder: 'assets/images/hero_banner.jpg' },
+        { id: 'desc', label: 'Descrição Atmosférica', value: this.cinematicScene?.description || '', multiline: true, placeholder: 'O ar gélido reverbera na escuridão...' }
+      ],
+      confirmText: 'PROJETAR CENA'
+    });
 
-    this.cinematicScene = { title, url, description: desc };
-    if (this.sync) {
-      this.sync.sendScenePresentation(this.cinematicScene, true);
+    if (res && res.title && res.title.trim()) {
+      this.cinematicScene = {
+        title: res.title.trim(),
+        url: res.url?.trim() || 'assets/images/hero_banner.jpg',
+        description: res.desc?.trim() || ''
+      };
+      if (this.sync) {
+        this.sync.sendScenePresentation(this.cinematicScene, true);
+      }
+      this.renderCenterStageOnly();
     }
-    this.renderCenterStageOnly();
   }
 
-  promptAddHandout() {
-    const title = prompt('Título do Documento / Pista:');
-    if (!title || !title.trim()) return;
-    const content = prompt('Conteúdo ou descrição da pista:') || '';
-    const imageUrl = prompt('URL da Imagem (opcional):') || '';
-    const category = prompt('Categoria (mapa, documento, pista, criatura):', 'documento') || 'documento';
+  async promptAddHandout() {
+    const res = await this.showPromptModal({
+      title: 'CADASTRAR NOVA PISTA / DOCUMENTO',
+      description: 'Cadastre um documento, mapa ou pista física e revele imediatamente para os agentes conectados.',
+      fields: [
+        { id: 'title', label: 'Título do Documento / Pista', placeholder: 'Ex: Diário do Cultista' },
+        { id: 'category', label: 'Categoria (documento, mapa, pista, criatura)', value: 'documento' },
+        { id: 'imageUrl', label: 'URL da Imagem (Opcional)', placeholder: 'https://... ou assets/...' },
+        { id: 'content', label: 'Conteúdo ou Descrição da Pista', multiline: true, placeholder: 'Digite os detalhes ou transcrição...' }
+      ],
+      confirmText: 'CADASTRAR E REVELAR'
+    });
 
-    const newH = {
-      id: 'hnd_' + Date.now(),
-      title: title.trim(),
-      content: content.trim(),
-      imageUrl: imageUrl.trim(),
-      category: category.trim(),
-      shared: true
-    };
+    if (res && res.title && res.title.trim()) {
+      const newH = {
+        id: 'hnd_' + Date.now(),
+        title: res.title.trim(),
+        category: res.category?.trim() || 'documento',
+        imageUrl: res.imageUrl?.trim() || '',
+        content: res.content?.trim() || '',
+        shared: true
+      };
 
-    this.handouts.push(newH);
-    localStorage.setItem('paroxismo_campaign_handouts_v1', JSON.stringify(this.handouts));
-    
-    if (this.sync) {
-      this.sync.sendHandout(newH, 'show');
-      this.sync.sendSystemEvent(`O Mestre cadastrou e revelou: "${newH.title}"`);
+      this.handouts.push(newH);
+      localStorage.setItem('paroxismo_campaign_handouts_v1', JSON.stringify(this.handouts));
+      
+      if (this.sync) {
+        this.sync.sendHandout(newH, 'show');
+        this.sync.sendSystemEvent(`O Mestre cadastrou e revelou: "${newH.title}"`);
+      }
+
+      this.renderLeftSidebarOnly();
+      this.renderCenterHandoutSummary();
     }
-
-    this.renderLeftSidebarOnly();
-    this.renderCenterHandoutSummary();
   }
 
   syncInitiative() {
@@ -2348,6 +2336,284 @@ export class SessionViewer {
   // ============================================================
   // MODAIS E HELPERS DE ATUALIZAÇÃO PARCIAL (SEM RECARREGAR)
   // ============================================================
+
+  // ============================================================
+  // MODAIS IN-APP PERSONALIZADOS (DARK FANTASY / TERMINAL CAD)
+  // Substitui 100% dos prompts, confirms e alerts nativos do navegador
+  // Compatibilidade absoluta com Discord Activities e iframes
+  // ============================================================
+
+  showConfirmModal({
+    title = "CONFIRMAÇÃO",
+    message = "Tem certeza?",
+    confirmText = "CONFIRMAR",
+    cancelText = "CANCELAR",
+    danger = false
+  } = {}) {
+    return new Promise((resolve) => {
+      let container = document.getElementById('vtt-generic-modal-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'vtt-generic-modal-container';
+        container.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md';
+        document.body.appendChild(container);
+      }
+
+      soundFX.playRuneClick();
+
+      container.innerHTML = `
+        <div class="relative w-full max-w-md bg-[#07090e] border-2 ${danger ? 'border-[#ff333d] shadow-[0_0_40px_rgba(255,51,61,0.3)]' : 'border-[#e21b23] shadow-[0_0_40px_rgba(226,27,35,0.3)]'} p-5 flex flex-col gap-4 text-white animate-fadeIn">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="${danger ? 'text-[#ff333d]' : 'text-[#e21b23]'}">⚠</span>
+              <span class="font-serif font-black text-sm uppercase tracking-wider">${this.escapeHTML(title)}</span>
+            </div>
+            <button id="vtt-btn-modal-close-x" class="text-white/40 hover:text-white text-xs cursor-pointer font-mono">[ × ]</button>
+          </div>
+
+          <p class="text-xs text-[#cbd0dc] leading-relaxed font-mono whitespace-pre-wrap">${this.escapeHTML(message)}</p>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+            ${cancelText ? `
+              <button id="vtt-btn-modal-cancel" class="px-3 py-1.5 bg-black border border-white/20 hover:border-white/40 text-white font-mono text-xs cursor-pointer">
+                ${this.escapeHTML(cancelText)}
+              </button>
+            ` : ''}
+            <button id="vtt-btn-modal-confirm" class="px-4 py-1.5 ${danger ? 'bg-[#ff333d] hover:bg-red-600' : 'bg-[#e21b23] hover:bg-[#ff333d]'} text-black font-black font-mono text-xs cursor-pointer">
+              ${this.escapeHTML(confirmText)}
+            </button>
+          </div>
+        </div>
+      `;
+
+      container.classList.remove('hidden');
+
+      const cleanup = (result) => {
+        soundFX.playRuneClick();
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        resolve(result);
+      };
+
+      container.querySelector('#vtt-btn-modal-confirm')?.addEventListener('click', () => cleanup(true));
+      container.querySelector('#vtt-btn-modal-cancel')?.addEventListener('click', () => cleanup(false));
+      container.querySelector('#vtt-btn-modal-close-x')?.addEventListener('click', () => cleanup(false));
+    });
+  }
+
+  showPromptModal({
+    title = "CONFIGURAÇÃO",
+    description = "",
+    fields = [],
+    confirmText = "CONFIRMAR",
+    cancelText = "CANCELAR"
+  } = {}) {
+    return new Promise((resolve) => {
+      let container = document.getElementById('vtt-generic-modal-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'vtt-generic-modal-container';
+        container.className = 'fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md';
+        document.body.appendChild(container);
+      }
+
+      soundFX.playRuneClick();
+
+      const fieldsHTML = fields.map(f => {
+        const inputType = f.type || 'text';
+        const val = f.value ?? '';
+        if (f.multiline) {
+          return `
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] text-white/50 uppercase font-mono font-bold">${this.escapeHTML(f.label)}</label>
+              <textarea id="prompt-field-${f.id}" rows="3" placeholder="${this.escapeHTML(f.placeholder || '')}" class="w-full bg-black border border-white/20 focus:border-[#e21b23] px-3 py-1.5 text-xs text-white outline-none font-mono resize-none">${this.escapeHTML(String(val))}</textarea>
+            </div>
+          `;
+        }
+        return `
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] text-white/50 uppercase font-mono font-bold">${this.escapeHTML(f.label)}</label>
+            <input type="${inputType}" id="prompt-field-${f.id}" value="${this.escapeHTML(String(val))}" placeholder="${this.escapeHTML(f.placeholder || '')}" class="w-full bg-black border border-white/20 focus:border-[#e21b23] px-3 py-1.5 text-xs text-white outline-none font-mono" />
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="relative w-full max-w-md bg-[#07090e] border-2 border-[#e21b23] shadow-[0_0_40px_rgba(226,27,35,0.3)] p-5 flex flex-col gap-4 text-white animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="${this.escapeHTML(title).includes('TRANSMISSÃO') ? 'text-amber-400' : 'text-[#e21b23]'}">⌨</span>
+              <span class="font-serif font-black text-sm uppercase tracking-wider">${this.escapeHTML(title)}</span>
+            </div>
+            <button id="vtt-btn-prompt-close-x" class="text-white/40 hover:text-white text-xs cursor-pointer font-mono">[ × ]</button>
+          </div>
+
+          ${description ? `<p class="text-xs text-[#8e95a5] font-mono leading-relaxed">${this.escapeHTML(description)}</p>` : ''}
+
+          <form id="vtt-prompt-form" class="flex flex-col gap-3">
+            ${fieldsHTML}
+
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+              <button type="button" id="vtt-btn-prompt-cancel" class="px-3 py-1.5 bg-black border border-white/20 hover:border-white/40 text-white font-mono text-xs cursor-pointer">
+                ${this.escapeHTML(cancelText)}
+              </button>
+              <button type="submit" id="vtt-btn-prompt-submit" class="px-4 py-1.5 bg-[#e21b23] hover:bg-[#ff333d] text-black font-black font-mono text-xs cursor-pointer">
+                ${this.escapeHTML(confirmText)}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      container.classList.remove('hidden');
+
+      setTimeout(() => {
+        const firstInput = container.querySelector('input, textarea');
+        firstInput?.focus();
+        if (firstInput && typeof firstInput.select === 'function') firstInput.select();
+      }, 50);
+
+      const cleanup = (data) => {
+        soundFX.playRuneClick();
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        resolve(data);
+      };
+
+      container.querySelector('#vtt-btn-prompt-cancel')?.addEventListener('click', () => cleanup(null));
+      container.querySelector('#vtt-btn-prompt-close-x')?.addEventListener('click', () => cleanup(null));
+
+      container.querySelector('#vtt-prompt-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const results = {};
+        fields.forEach(f => {
+          const el = container.querySelector(`#prompt-field-${f.id}`);
+          results[f.id] = el ? el.value : '';
+        });
+        cleanup(results);
+      });
+    });
+  }
+
+  async handleToggleGmMode() {
+    if (this.isGm) {
+      const ok = await this.showConfirmModal({
+        title: 'DESATIVAR MODO MESTRE',
+        message: 'Deseja realmente desativar as funções e privilégios de Mestre nesta sessão?',
+        confirmText: 'DESATIVAR',
+        danger: true
+      });
+      if (ok) {
+        this.isGm = false;
+        this.app?.setGmMode(false);
+        if (this.sync) this.sync.isGm = false;
+        soundFX.playRuneClick();
+        this.render();
+      }
+    } else {
+      this.openGmPasswordModal();
+    }
+  }
+
+  async handleToggleCombat() {
+    if (this.combatActive) {
+      const ok = await this.showConfirmModal({
+        title: 'ENCERRAR COMBATE',
+        message: 'Deseja realmente finalizar o combate em andamento e pausar a rodada de turnos?',
+        confirmText: 'FINALIZAR',
+        danger: true
+      });
+      if (ok) {
+        this.combatActive = false;
+        this.combatPhase = 'initiative';
+        localStorage.setItem('paroxismo_combat_active', 'false');
+        localStorage.setItem('paroxismo_combat_phase', 'initiative');
+        this.syncInitiative();
+        if (this.sync) this.sync.sendSystemEvent('O Mestre finalizou o combate.');
+      }
+    } else {
+      this.openCombatSetupModal();
+    }
+  }
+
+  async handleClearInitiative() {
+    const ok = await this.showConfirmModal({
+      title: 'LIMPAR INICIATIVAS',
+      message: 'Deseja limpar todos os combatentes da ordem de iniciativa? Esta ação resetará a fila de turnos.',
+      confirmText: 'LIMPAR TUDO',
+      danger: true
+    });
+    if (ok) {
+      this.initiativeList = [];
+      this.activeTurnIndex = 0;
+      this.combatActive = false;
+      this.combatPhase = 'initiative';
+      localStorage.removeItem('paroxismo_initiative_list_v1');
+      localStorage.setItem('paroxismo_combat_active', 'false');
+      localStorage.setItem('paroxismo_combat_phase', 'initiative');
+      this.syncInitiative();
+    }
+  }
+
+  async handleEditCampaign() {
+    const res = await this.showPromptModal({
+      title: 'DADOS DA SESSÃO & CAMPANHA',
+      description: 'Atualize as informações da sessão para sincronização com todos os jogadores.',
+      fields: [
+        { id: 'name', label: 'Nome da Campanha', value: this.sessionData.campaignName, placeholder: 'Ex: Paroxismo: Cinzas do Passado' },
+        { id: 'num', label: 'Número da Sessão', type: 'number', value: this.sessionData.sessionNumber, placeholder: '1' }
+      ],
+      confirmText: 'SALVAR DADOS'
+    });
+    if (res && res.name && res.name.trim()) {
+      this.sessionData.campaignName = res.name.trim();
+      this.sessionData.sessionNumber = parseInt(res.num, 10) || 1;
+      localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
+      localStorage.setItem('paroxismo_session_num', String(this.sessionData.sessionNumber));
+      if (this.sync) {
+        this.sync.sendSessionState({
+          campaignName: this.sessionData.campaignName,
+          sessionNumber: this.sessionData.sessionNumber
+        });
+      }
+      this.renderHeaderOnly();
+      this.renderCenterStageOnly();
+    }
+  }
+
+  async handleEditTacticalNotes() {
+    const res = await this.showPromptModal({
+      title: 'DIRETRIZ TÁTICA DA EQUIPE',
+      description: 'Defina a ordem tática ou objetivo atual a ser exibido no centro da mesa.',
+      fields: [
+        { id: 'notes', label: 'Diretriz / Objetivo', value: this.sessionData.tacticalNotes, multiline: true, placeholder: 'Ex: Investigar o mausoléu abandonado e conter o foco de contaminação.' }
+      ],
+      confirmText: 'DEFINIR DIRETRIZ'
+    });
+    if (res !== null && res.notes !== undefined) {
+      this.sessionData.tacticalNotes = res.notes.trim();
+      localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
+      if (this.sync) {
+        this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
+      }
+      this.renderCenterStageOnly();
+    }
+  }
+
+  async handleBroadcastSystemMsg() {
+    const res = await this.showPromptModal({
+      title: 'TRANSMISSÃO DO SISTEMA (MESTRE)',
+      description: 'Transmita um aviso global para todos os jogadores na mesa.',
+      fields: [
+        { id: 'msg', label: 'Mensagem', multiline: true, placeholder: 'Ex: Um tremor ecoa pelo solo da cripta. Todos façam teste de Reflexos!' }
+      ],
+      confirmText: 'TRANSMITIR'
+    });
+    if (res && res.msg && res.msg.trim() && this.sync) {
+      this.sync.sendSystemEvent(res.msg.trim());
+    }
+  }
+
   openHandoutModal(handout) {
     const modalContainer = this.container.querySelector('#vtt-handout-modal-container');
     if (!modalContainer) return;
@@ -2403,19 +2669,7 @@ export class SessionViewer {
     const header = this.container.querySelector('#vtt-header');
     if (!header) return;
 
-    header.querySelector('#vtt-btn-toggle-gm-mode')?.addEventListener('click', () => {
-      if (this.isGm) {
-        if (confirm('Deseja desativar o modo Mestre nesta sessão?')) {
-          this.isGm = false;
-          this.app?.setGmMode(false);
-          this.sync.isGm = false;
-          soundFX.playRuneClick();
-          this.render();
-        }
-      } else {
-        this.openGmPasswordModal();
-      }
-    });
+    header.querySelector('#vtt-btn-toggle-gm-mode')?.addEventListener('click', () => this.handleToggleGmMode());
 
     header.querySelector('#vtt-btn-fullscreen')?.addEventListener('click', () => {
       if (!document.fullscreenElement) {
@@ -2451,26 +2705,8 @@ export class SessionViewer {
       this.renderCenterStageOnly();
     });
 
-    stage.querySelector('#vtt-btn-edit-campaign-top')?.addEventListener('click', () => {
-      const name = prompt('Nome da Campanha:', this.sessionData.campaignName);
-      if (name && name.trim()) {
-        this.sessionData.campaignName = name.trim();
-        localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
-        if (this.sync) this.sync.sendSessionState({ campaignName: this.sessionData.campaignName });
-        this.renderHeaderOnly();
-        this.renderCenterStageOnly();
-      }
-    });
-
-    stage.querySelector('#vtt-btn-edit-tactical-notes')?.addEventListener('click', () => {
-      const notes = prompt('Diretriz Tática / Objetivo da Sessão:', this.sessionData.tacticalNotes);
-      if (notes !== null) {
-        this.sessionData.tacticalNotes = notes.trim();
-        localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
-        if (this.sync) this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
-        this.renderCenterStageOnly();
-      }
-    });
+    stage.querySelector('#vtt-btn-edit-campaign-top')?.addEventListener('click', () => this.handleEditCampaign());
+    stage.querySelector('#vtt-btn-edit-tactical-notes')?.addEventListener('click', () => this.handleEditTacticalNotes());
 
     stage.querySelectorAll('.vtt-btn-roll-my-initiative').forEach(btn => {
       btn.addEventListener('click', () => this.executeRollMyInitiative());
@@ -2559,10 +2795,13 @@ export class SessionViewer {
       btn.addEventListener('click', () => {
         const stat = btn.dataset.stat;
         const delta = parseInt(btn.dataset.delta, 10);
+        const maxVal = parseInt(btn.dataset.max, 10) || (stat === 'pv' ? 20 : 3);
         if (stat === 'pv') {
-          this.character.currentPv = Math.max(0, Math.min(20, (this.character.currentPv || 20) + delta));
+          const cur = (typeof this.character.currentPv === 'number' && !isNaN(this.character.currentPv)) ? this.character.currentPv : maxVal;
+          this.character.currentPv = Math.max(0, Math.min(maxVal, cur + delta));
         } else if (stat === 'pe') {
-          this.character.currentPe = Math.max(0, Math.min(3, (this.character.currentPe || 3) + delta));
+          const cur = (typeof this.character.currentPe === 'number' && !isNaN(this.character.currentPe)) ? this.character.currentPe : maxVal;
+          this.character.currentPe = Math.max(0, Math.min(maxVal, cur + delta));
         }
         saveCharacterDossier(this.character);
         soundFX.playRuneClick();
@@ -2638,33 +2877,9 @@ export class SessionViewer {
     });
     aside.querySelector('#vtt-btn-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
     aside.querySelector('#vtt-btn-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
-    aside.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => {
-      if (this.combatActive) {
-        if (confirm('Deseja realmente finalizar o combate?')) {
-          this.combatActive = false;
-          this.combatPhase = 'initiative';
-          localStorage.setItem('paroxismo_combat_active', 'false');
-          localStorage.setItem('paroxismo_combat_phase', 'initiative');
-          this.syncInitiative();
-          if (this.sync) this.sync.sendSystemEvent('O Mestre finalizou o combate.');
-        }
-      } else {
-        this.openCombatSetupModal();
-      }
-    });
+    aside.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => this.handleToggleCombat());
     aside.querySelector('#vtt-btn-init-combat-empty')?.addEventListener('click', () => this.openCombatSetupModal());
-    aside.querySelector('#vtt-btn-clear-initiative')?.addEventListener('click', () => {
-      if (confirm('Deseja limpar todos os combatentes da iniciativa?')) {
-        this.initiativeList = [];
-        this.activeTurnIndex = 0;
-        this.combatActive = false;
-        this.combatPhase = 'initiative';
-        localStorage.removeItem('paroxismo_initiative_list_v1');
-        localStorage.setItem('paroxismo_combat_active', 'false');
-        localStorage.setItem('paroxismo_combat_phase', 'initiative');
-        this.syncInitiative();
-      }
-    });
+    aside.querySelector('#vtt-btn-clear-initiative')?.addEventListener('click', () => this.handleClearInitiative());
     aside.querySelectorAll('.vtt-btn-remove-actor').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
@@ -2699,25 +2914,8 @@ export class SessionViewer {
     aside.querySelector('#vtt-btn-add-handout-empty')?.addEventListener('click', () => this.promptAddHandout());
 
     // 12. GM Panel no Sidebar
-    aside.querySelector('#vtt-btn-gm-campaign-edit')?.addEventListener('click', () => {
-      const name = prompt('Novo Nome da Campanha:', this.sessionData.campaignName);
-      if (name) {
-        this.sessionData.campaignName = name.trim();
-        localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
-        if (this.sync) this.sync.sendSessionState({ campaignName: this.sessionData.campaignName });
-        this.renderHeaderOnly();
-        this.renderCenterStageOnly();
-      }
-    });
-    aside.querySelector('#vtt-btn-gm-notes')?.addEventListener('click', () => {
-      const notes = prompt('Diretriz Tática / Objetivo:', this.sessionData.tacticalNotes);
-      if (notes !== null) {
-        this.sessionData.tacticalNotes = notes.trim();
-        localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
-        if (this.sync) this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
-        this.renderCenterStageOnly();
-      }
-    });
+    aside.querySelector('#vtt-btn-gm-campaign-edit')?.addEventListener('click', () => this.handleEditCampaign());
+    aside.querySelector('#vtt-btn-gm-notes')?.addEventListener('click', () => this.handleEditTacticalNotes());
     aside.querySelector('#vtt-btn-gm-init-combat')?.addEventListener('click', () => this.openCombatSetupModal());
     aside.querySelector('#vtt-btn-gm-scene')?.addEventListener('click', () => this.promptGmScene());
     aside.querySelector('#vtt-btn-gm-secret-roll')?.addEventListener('click', () => this.executeGmSecretRoll());
@@ -2730,12 +2928,7 @@ export class SessionViewer {
       }
       this.renderHeaderOnly();
     });
-    aside.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => {
-      const msg = prompt('Mensagem do Sistema para todos:');
-      if (msg && msg.trim() && this.sync) {
-        this.sync.sendSystemEvent(msg.trim());
-      }
-    });
+    aside.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => this.handleBroadcastSystemMsg());
   }
 
   renderInitiativeListOnly() {

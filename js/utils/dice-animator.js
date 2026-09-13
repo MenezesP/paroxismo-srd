@@ -224,6 +224,7 @@ export class DiceAnimator {
    */
   static roll({
     sides = 20,
+    quantity = 1,
     label = "TESTE"
   }) {
     return new Promise((resolve) => {
@@ -232,14 +233,23 @@ export class DiceAnimator {
       const THREE = window.THREE;
       const CANNON = window.CANNON;
 
+      const d = parseInt(sides, 10) || 20;
+      const count = Math.max(1, Math.min(10, parseInt(quantity, 10) || 1));
+
       if (!THREE || !CANNON || !this.world) {
         // Fallback defensivo caso WebGL não esteja disponível
-        const fallbackVal = Math.floor(Math.random() * sides) + 1;
+        const fallbackRolls = [];
+        for (let i = 0; i < count; i++) {
+          fallbackRolls.push(Math.floor(Math.random() * d) + 1);
+        }
+        const fallbackSum = fallbackRolls.reduce((a, b) => a + b, 0);
         resolve({
-          rolledValue: fallbackVal,
-          isCrit: sides === 20 && fallbackVal === 20,
-          isFumble: sides === 20 && fallbackVal === 1,
-          sides,
+          rolledValue: fallbackRolls[0],
+          rolls: fallbackRolls,
+          sum: fallbackSum,
+          isCrit: d === 20 && fallbackRolls.includes(20),
+          isFumble: d === 20 && fallbackRolls.every(r => r === 1),
+          sides: d,
           label
         });
         return;
@@ -252,107 +262,126 @@ export class DiceAnimator {
       labelBadge.innerHTML = `<span>[ ${label.toUpperCase()} ]</span>`;
       document.body.appendChild(labelBadge);
 
+      const batch = {
+        quantity: count,
+        remaining: count,
+        results: [],
+        sides: d,
+        label,
+        labelBadge,
+        resolveCallback: resolve,
+        resolved: false
+      };
+
       const isMobile = window.innerWidth < 768;
 
       // Cores Litúrgicas do PAROXISMO (Tamanho proporcional em telas mobile)
-      const baseSize = sides === 20 ? 32 : sides === 6 ? 28 : sides === 8 ? 30 : sides === 12 ? 30 : 28;
+      const baseSize = d === 20 ? 32 : d === 6 ? 28 : d === 8 ? 30 : d === 12 ? 30 : 28;
       const diceOptions = {
         size: isMobile ? Math.round(baseSize * 0.78) : baseSize,
         backColor: '#0b0f19',
         fontColor: '#ff333d'
       };
 
-      let dieInstance;
-      const d = parseInt(sides, 10) || 20;
-
-      switch (d) {
-        case 4:
-          dieInstance = new DiceD4(diceOptions);
-          break;
-        case 6:
-          dieInstance = new DiceD6(diceOptions);
-          break;
-        case 8:
-          dieInstance = new DiceD8(diceOptions);
-          break;
-        case 10:
-          dieInstance = new DiceD10(diceOptions);
-          break;
-        case 12:
-          dieInstance = new DiceD12(diceOptions);
-          break;
-        case 20:
-        default:
-          dieInstance = new DiceD20(diceOptions);
-          break;
-      }
-
-      const dieMesh = dieInstance.getObject();
-      this.scene.add(dieMesh);
-
-      // Posição inicial de lançamento (adaptada para telas móveis para o dado nunca sair da tela)
-      const spawnSide = Math.random() > 0.5 ? 1 : -1;
-      const startX = isMobile 
-        ? spawnSide * (12 + Math.random() * 16)
-        : spawnSide * (70 + Math.random() * 40);
-      const startY = isMobile ? (150 + Math.random() * 20) : (130 + Math.random() * 30);
-      const startZ = isMobile ? (15 + Math.random() * 25) : (30 + Math.random() * 40);
-
-      dieMesh.position.set(startX, startY, startZ);
-      dieMesh.quaternion.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        1
-      ).normalize();
-
-      dieInstance.updateBodyFromMesh();
-
-      // Forças físicas de arremesso (Impulso linear contido em direção ao centro da mesa)
-      const forceMult = isMobile ? 1.15 : 1.5;
-      dieMesh.body.velocity.set(
-        -startX * (forceMult + Math.random() * 0.3),
-        -90 - Math.random() * 30,
-        -startZ * (forceMult + Math.random() * 0.3)
-      );
-
-      dieMesh.body.angularVelocity.set(
-        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
-        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
-        (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1)
-      );
-
       // Som tátil de arremesso inicial
       soundFX.playDiceRoll();
 
-      // Monitoramento de colisões para disparar som de quique
-      let lastSoundTime = 0;
-      const onCollide = (e) => {
-        const now = performance.now();
-        const contactVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
-        if (contactVelocity > 35 && now - lastSoundTime > 110) {
-          lastSoundTime = now;
-          soundFX.playDiceRoll();
+      for (let i = 0; i < count; i++) {
+        let dieInstance;
+        switch (d) {
+          case 4:
+            dieInstance = new DiceD4(diceOptions);
+            break;
+          case 6:
+            dieInstance = new DiceD6(diceOptions);
+            break;
+          case 8:
+            dieInstance = new DiceD8(diceOptions);
+            break;
+          case 10:
+            dieInstance = new DiceD10(diceOptions);
+            break;
+          case 12:
+            dieInstance = new DiceD12(diceOptions);
+            break;
+          case 20:
+          default:
+            dieInstance = new DiceD20(diceOptions);
+            break;
         }
-      };
 
-      dieMesh.body.addEventListener('collide', onCollide);
+        const dieMesh = dieInstance.getObject();
+        this.scene.add(dieMesh);
 
-      // Estado do Dado Ativo
-      const dieData = {
-        dieInstance,
-        dieMesh,
-        onCollide,
-        stableCount: 0,
-        isFinished: false,
-        startTime: performance.now(),
-        resolveCallback: resolve,
-        labelBadge,
-        sides: d,
-        label
-      };
+        // Espalhamento de posições para múltiplos dados não interpenetrarem no spawn
+        const spawnSide = (i % 2 === 0) ? 1 : -1;
+        const spreadOffsetX = (i - (count - 1) / 2) * (isMobile ? 20 : 34);
+        const spreadOffsetZ = (Math.random() - 0.5) * (isMobile ? 20 : 30);
+        const spreadOffsetY = i * 18;
 
-      this.activeDice.push(dieData);
+        const baseStartX = isMobile 
+          ? spawnSide * (12 + Math.random() * 16)
+          : spawnSide * (70 + Math.random() * 40);
+        const startX = baseStartX + spreadOffsetX;
+        const startY = (isMobile ? 150 : 130) + spreadOffsetY + Math.random() * 20;
+        const startZ = (isMobile ? 15 : 30) + spreadOffsetZ;
+
+        dieMesh.position.set(startX, startY, startZ);
+        dieMesh.quaternion.set(
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+          1
+        ).normalize();
+
+        dieInstance.updateBodyFromMesh();
+
+        // Forças físicas de arremesso com dispersão direcional
+        const forceMult = isMobile ? 1.15 : 1.5;
+        const spreadVelX = (Math.random() - 0.5) * 25;
+        const spreadVelZ = (Math.random() - 0.5) * 25;
+        dieMesh.body.velocity.set(
+          -startX * (forceMult + Math.random() * 0.25) + spreadVelX,
+          -90 - Math.random() * 30,
+          -startZ * (forceMult + Math.random() * 0.25) + spreadVelZ
+        );
+
+        dieMesh.body.angularVelocity.set(
+          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
+          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
+          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1)
+        );
+
+        // Monitoramento de colisões para som de quique
+        let lastSoundTime = 0;
+        const onCollide = (e) => {
+          const now = performance.now();
+          const contactVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
+          if (contactVelocity > 35 && now - lastSoundTime > 110) {
+            lastSoundTime = now;
+            soundFX.playDiceRoll();
+          }
+        };
+
+        dieMesh.body.addEventListener('collide', onCollide);
+
+        // Estado do Dado Ativo
+        const dieData = {
+          dieInstance,
+          dieMesh,
+          onCollide,
+          stableCount: 0,
+          isFinished: false,
+          startTime: performance.now(),
+          batch,
+          resolveCallback: resolve,
+          labelBadge,
+          sides: d,
+          label
+        };
+
+        this.activeDice.push(dieData);
+      }
 
       // Inicia loop de animação caso não esteja ativo
       if (!this.isLoopRunning) {
@@ -468,32 +497,86 @@ export class DiceAnimator {
     dieData.auraMats = [outerMat, innerMat];
     dieData.auraGeos = [outerGeo, innerGeo];
 
-    // 3. Atualiza badge flutuante superior com o resultado físico real
-    if (dieData.labelBadge) {
-      if (isCrit) {
-        dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#06b6d4]').replace('text-white', 'text-[#06b6d4]');
-        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#06b6d4] text-black font-black">[ 20 CRÍTICO ]</span>`;
-      } else if (isFumble) {
-        dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#ff333d]').replace('text-white', 'text-[#ff333d]');
-        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#ff333d] text-white font-black">[ 1 FALHA ]</span>`;
-      } else {
-        dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#e21b23] text-white font-black">[ RESULTADO: ${physicalValue} ]</span>`;
+    // 3. Resolução por Lote (Batching) para Suporte Completo a Múltiplos Dados Físicos 3D
+    if (dieData.batch) {
+      const batch = dieData.batch;
+      batch.results.push(physicalValue);
+      batch.remaining--;
+
+      if (batch.remaining <= 0 && !batch.resolved) {
+        batch.resolved = true;
+        const count = batch.quantity;
+        const sides = batch.sides;
+        const results = batch.results;
+        const sum = results.reduce((a, b) => a + b, 0);
+        const isCritBatch = (sides === 20 && results.includes(20));
+        const isFumbleBatch = (sides === 20 && results.every(r => r === 1));
+
+        if (batch.labelBadge) {
+          if (count === 1) {
+            if (isCritBatch) {
+              batch.labelBadge.className = batch.labelBadge.className.replace('border-[#e21b23]', 'border-[#06b6d4]').replace('text-white', 'text-[#06b6d4]');
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#06b6d4] text-black font-black">[ 20 CRÍTICO ]</span>`;
+            } else if (isFumbleBatch) {
+              batch.labelBadge.className = batch.labelBadge.className.replace('border-[#e21b23]', 'border-[#ff333d]').replace('text-white', 'text-[#ff333d]');
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#ff333d] text-white font-black">[ 1 FALHA ]</span>`;
+            } else {
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#e21b23] text-white font-black">[ RESULTADO: ${results[0]} ]</span>`;
+            }
+          } else {
+            // Múltiplos dados rolados juntos
+            if (isCritBatch) {
+              batch.labelBadge.className = batch.labelBadge.className.replace('border-[#e21b23]', 'border-[#06b6d4]').replace('text-white', 'text-[#06b6d4]');
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#06b6d4] text-black font-black">[ ${results.join(' + ')} = ${sum} CRÍTICO! ]</span>`;
+            } else if (isFumbleBatch) {
+              batch.labelBadge.className = batch.labelBadge.className.replace('border-[#e21b23]', 'border-[#ff333d]').replace('text-white', 'text-[#ff333d]');
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#ff333d] text-white font-black">[ ${results.join(' + ')} = ${sum} FALHA! ]</span>`;
+            } else {
+              batch.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#e21b23] text-white font-black">[ ${results.join(' + ')} = ${sum} ]</span>`;
+            }
+          }
+
+          setTimeout(() => {
+            batch.labelBadge?.remove();
+          }, 2500);
+        }
+
+        batch.resolveCallback({
+          rolledValue: results[0],
+          rolls: results,
+          sum,
+          isCrit: isCritBatch,
+          isFumble: isFumbleBatch,
+          sides,
+          label: batch.label
+        });
       }
+    } else {
+      if (dieData.labelBadge) {
+        if (isCrit) {
+          dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#06b6d4]').replace('text-white', 'text-[#06b6d4]');
+          dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#06b6d4] text-black font-black">[ 20 CRÍTICO ]</span>`;
+        } else if (isFumble) {
+          dieData.labelBadge.className = dieData.labelBadge.className.replace('border-[#e21b23]', 'border-[#ff333d]').replace('text-white', 'text-[#ff333d]');
+          dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#ff333d] text-white font-black">[ 1 FALHA ]</span>`;
+        } else {
+          dieData.labelBadge.innerHTML += ` <span class="ml-2 px-2 py-0.5 bg-[#e21b23] text-white font-black">[ RESULTADO: ${physicalValue} ]</span>`;
+        }
+        setTimeout(() => {
+          dieData.labelBadge?.remove();
+        }, 2500);
+      }
+
+      dieData.resolveCallback({
+        rolledValue: physicalValue,
+        rolls: [physicalValue],
+        sum: physicalValue,
+        isCrit,
+        isFumble,
+        sides: dieData.sides,
+        label: dieData.label
+      });
     }
-
-    // 4. Remove badge flutuante após 2.5 segundos
-    setTimeout(() => {
-      dieData.labelBadge?.remove();
-    }, 2500);
-
-    // 5. RESOLVE A PROMISE: Envia o valor da face física para cálculo e exibição do popup!
-    dieData.resolveCallback({
-      rolledValue: physicalValue,
-      isCrit,
-      isFumble,
-      sides: dieData.sides,
-      label: dieData.label
-    });
 
     // 6. Mantém o dado 3D descansando na mesa por 4.0 segundos (estilo Foundry VTT)
     setTimeout(() => {

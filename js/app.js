@@ -26,7 +26,7 @@ import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v1
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v11';
 import { DiscordActivity } from './utils/discord-activity.js?v=release_v11';
 import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
-import { SessionViewer } from './components/session-viewer.js?v=sess_v8';
+import { SessionViewer } from './components/session-viewer.js?v=sess_v9';
 
 class App {
   constructor() {
