@@ -1418,14 +1418,8 @@ export class SessionViewer {
     const root = this.container;
     if (!root) return;
 
-    // 1. Alternância de Abas da Coluna Esquerda
-    root.querySelectorAll('.vtt-left-tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.activeLeftTab = btn.dataset.tab;
-        soundFX.playRuneClick();
-        this.renderLeftSidebarOnly();
-      });
-    });
+    // 1. Eventos da Coluna Esquerda (Isolados para evitar acúmulo de listeners)
+    this.setupLeftSidebarEvents(root.querySelector('#vtt-left-sidebar'));
 
     // 2. Navegação Mobile por Abas
     root.querySelectorAll('.vtt-mobile-tab-btn').forEach(btn => {
@@ -1519,103 +1513,8 @@ export class SessionViewer {
       }
     });
 
-    // 9. Dock de Dados: Seleção de Tipo
-    root.querySelectorAll('.vtt-btn-dice-type').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.selectedDiceType = parseInt(btn.dataset.sides, 10);
-        soundFX.playRuneClick();
-        this.renderDiceDockOnly();
-      });
-    });
-
-    // 10. Dock de Dados: Quantidade e Modificador
-    root.querySelector('#vtt-btn-qty-dec')?.addEventListener('click', () => {
-      if (this.diceQuantity > 1) {
-        this.diceQuantity--;
-        this.renderDiceDockOnly();
-      }
-    });
-    root.querySelector('#vtt-btn-qty-inc')?.addEventListener('click', () => {
-      if (this.diceQuantity < 10) {
-        this.diceQuantity++;
-        this.renderDiceDockOnly();
-      }
-    });
-    root.querySelector('#vtt-btn-mod-dec')?.addEventListener('click', () => {
-      this.diceModifier--;
-      this.renderDiceDockOnly();
-    });
-    root.querySelector('#vtt-btn-mod-inc')?.addEventListener('click', () => {
-      this.diceModifier++;
-      this.renderDiceDockOnly();
-    });
-
-    // 11. Botão Principal ROLAR DADO
-    root.querySelector('#vtt-btn-roll-main')?.addEventListener('click', () => {
-      this.executeDockRoll();
-    });
-
-    // 12. Dossiê: Ajuste Rápido de PV e PE
-    root.querySelectorAll('.vtt-btn-adjust-stat').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const stat = btn.dataset.stat;
-        const delta = parseInt(btn.dataset.delta, 10);
-        if (stat === 'pv') {
-          this.character.currentPv = Math.max(0, Math.min(20, (this.character.currentPv || 20) + delta));
-        } else if (stat === 'pe') {
-          this.character.currentPe = Math.max(0, Math.min(3, (this.character.currentPe || 3) + delta));
-        }
-        saveCharacterDossier(this.character);
-        soundFX.playRuneClick();
-        this.renderLeftSidebarOnly();
-      });
-    });
-
-    // 13. Dossiê: Ataque de Arma (1-Clique)
-    root.querySelectorAll('.vtt-btn-weapon-attack').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const weaponName = btn.dataset.name;
-        const mod = parseInt(btn.dataset.mod || '0', 10);
-        this.executeQuickSkillRoll(`Ataque (${weaponName})`, mod);
-      });
-    });
-
-    // 14. Dossiê: Dano de Arma (1-Clique)
-    root.querySelectorAll('.vtt-btn-weapon-damage').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const weaponName = btn.dataset.name;
-        const dmgFormula = btn.dataset.dmg || '1d8';
-        this.executeWeaponDamageRoll(weaponName, dmgFormula);
-      });
-    });
-
-    // 15. Dossiê: Conjurar Ritual (1-Clique)
-    root.querySelectorAll('.vtt-btn-cast-ritual').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const ritualName = btn.dataset.name;
-        const costStr = btn.dataset.cost || '1 PE';
-        const cost = parseInt(costStr, 10) || 1;
-        this.executeCastRitual(ritualName, cost);
-      });
-    });
-
-    // 16. Dossiê: Teste de Perícia de 1-Clique
-    root.querySelectorAll('.vtt-btn-quick-skill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const skillName = btn.dataset.name;
-        const mod = parseInt(btn.dataset.mod || '0', 10);
-        this.executeQuickSkillRoll(skillName, mod);
-      });
-    });
-
-    // 17. Dossiê: Teste de Atributo de 1-Clique
-    root.querySelectorAll('.vtt-btn-quick-attr').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const attrName = btn.dataset.attr.toUpperCase();
-        const val = parseInt(btn.dataset.val || '0', 10);
-        this.executeQuickSkillRoll('Atributo ' + attrName, val);
-      });
-    });
+    // 9. Inicializa e Anexa Eventos do Dock de Dados (Unificado)
+    this.renderDiceDockOnly();
 
     // ============================================================
     // 18. INTERAÇÕES DE INICIATIVA & COMBATE
@@ -2246,6 +2145,9 @@ export class SessionViewer {
   // EXECUÇÃO DE ROLAGENS COM MOTOR 3D (THREE.JS + CANNON.JS)
   // ============================================================
   executeDockRoll() {
+    if (this._isRollingDock) return;
+    this._isRollingDock = true;
+
     const sides = this.selectedDiceType;
     const qty = this.diceQuantity;
     const mod = this.diceModifier;
@@ -2280,6 +2182,10 @@ export class SessionViewer {
       if (this.sync) {
         this.sync.sendDiceRoll(rollPayload);
       }
+    }).finally(() => {
+      setTimeout(() => {
+        this._isRollingDock = false;
+      }, 600);
     });
   }
 
@@ -2627,8 +2533,209 @@ export class SessionViewer {
     const aside = this.container.querySelector('#vtt-left-sidebar');
     if (aside) {
       aside.innerHTML = this.getLeftSidebarHTML();
-      this.setupEventListeners();
+      this.setupLeftSidebarEvents(aside);
     }
+  }
+
+  setupLeftSidebarEvents(aside) {
+    if (!aside) return;
+
+    // 1. Alternância de Abas da Coluna Esquerda
+    aside.querySelectorAll('.vtt-left-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.activeLeftTab = btn.dataset.tab;
+        soundFX.playRuneClick();
+        this.renderLeftSidebarOnly();
+      });
+    });
+
+    // 2. Abrir Ficha Completa (Foundry Popup)
+    aside.querySelector('#vtt-btn-open-foundry-sheet')?.addEventListener('click', () => {
+      this.openCharacterSheetModal();
+    });
+
+    // 3. Dossiê: Ajuste Rápido de PV e PE
+    aside.querySelectorAll('.vtt-btn-adjust-stat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const stat = btn.dataset.stat;
+        const delta = parseInt(btn.dataset.delta, 10);
+        if (stat === 'pv') {
+          this.character.currentPv = Math.max(0, Math.min(20, (this.character.currentPv || 20) + delta));
+        } else if (stat === 'pe') {
+          this.character.currentPe = Math.max(0, Math.min(3, (this.character.currentPe || 3) + delta));
+        }
+        saveCharacterDossier(this.character);
+        soundFX.playRuneClick();
+        this.renderLeftSidebarOnly();
+      });
+    });
+
+    // 4. Dossiê: Ataque de Arma (1-Clique)
+    aside.querySelectorAll('.vtt-btn-weapon-attack').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const weaponName = btn.dataset.name;
+        const mod = parseInt(btn.dataset.mod || '0', 10);
+        this.executeQuickSkillRoll(`Ataque (${weaponName})`, mod);
+      });
+    });
+
+    // 5. Dossiê: Dano de Arma (1-Clique)
+    aside.querySelectorAll('.vtt-btn-weapon-damage').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const weaponName = btn.dataset.name;
+        const dmgFormula = btn.dataset.dmg || '1d8';
+        this.executeWeaponDamageRoll(weaponName, dmgFormula);
+      });
+    });
+
+    // 6. Dossiê: Conjurar Ritual (1-Clique)
+    aside.querySelectorAll('.vtt-btn-cast-ritual').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ritualName = btn.dataset.name;
+        const costStr = btn.dataset.cost || '1 PE';
+        const cost = parseInt(costStr, 10) || 1;
+        this.executeCastRitual(ritualName, cost);
+      });
+    });
+
+    // 7. Dossiê: Teste de Perícia de 1-Clique
+    aside.querySelectorAll('.vtt-btn-quick-skill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const skillName = btn.dataset.name;
+        const mod = parseInt(btn.dataset.mod || '0', 10);
+        this.executeQuickSkillRoll(skillName, mod);
+      });
+    });
+
+    // 8. Dossiê: Teste de Atributo de 1-Clique
+    aside.querySelectorAll('.vtt-btn-quick-attr').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const attrName = btn.dataset.attr.toUpperCase();
+        const val = parseInt(btn.dataset.val || '0', 10);
+        this.executeQuickSkillRoll('Atributo ' + attrName, val);
+      });
+    });
+
+    // 9. Rolagem da própria iniciativa pelo Jogador
+    aside.querySelectorAll('.vtt-btn-roll-my-initiative').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.executeRollMyInitiative();
+      });
+    });
+
+    // 10. Mestre rola pendentes / inicia turnos no Sidebar
+    aside.querySelector('#vtt-btn-gm-roll-all')?.addEventListener('click', () => {
+      this.executeGmRollAllPending();
+    });
+    aside.querySelector('#vtt-btn-start-turns')?.addEventListener('click', () => {
+      this.startCombatTurns();
+    });
+    aside.querySelectorAll('.vtt-btn-roll-actor-inic').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const actorId = btn.dataset.id;
+        if (actorId) this.executeGmRollActorInitiative(actorId);
+      });
+    });
+    aside.querySelector('#vtt-btn-prev-turn')?.addEventListener('click', () => this.advanceTurn(-1));
+    aside.querySelector('#vtt-btn-next-turn')?.addEventListener('click', () => this.advanceTurn(1));
+    aside.querySelector('#vtt-btn-toggle-combat')?.addEventListener('click', () => {
+      if (this.combatActive) {
+        if (confirm('Deseja realmente finalizar o combate?')) {
+          this.combatActive = false;
+          this.combatPhase = 'initiative';
+          localStorage.setItem('paroxismo_combat_active', 'false');
+          localStorage.setItem('paroxismo_combat_phase', 'initiative');
+          this.syncInitiative();
+          if (this.sync) this.sync.sendSystemEvent('O Mestre finalizou o combate.');
+        }
+      } else {
+        this.openCombatSetupModal();
+      }
+    });
+    aside.querySelector('#vtt-btn-init-combat-empty')?.addEventListener('click', () => this.openCombatSetupModal());
+    aside.querySelector('#vtt-btn-clear-initiative')?.addEventListener('click', () => {
+      if (confirm('Deseja limpar todos os combatentes da iniciativa?')) {
+        this.initiativeList = [];
+        this.activeTurnIndex = 0;
+        this.combatActive = false;
+        this.combatPhase = 'initiative';
+        localStorage.removeItem('paroxismo_initiative_list_v1');
+        localStorage.setItem('paroxismo_combat_active', 'false');
+        localStorage.setItem('paroxismo_combat_phase', 'initiative');
+        this.syncInitiative();
+      }
+    });
+    aside.querySelectorAll('.vtt-btn-remove-actor').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        this.initiativeList = this.initiativeList.filter(a => a.id !== id);
+        if (this.activeTurnIndex >= this.initiativeList.length) {
+          this.activeTurnIndex = Math.max(0, this.initiativeList.length - 1);
+        }
+        localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+        this.syncInitiative();
+      });
+    });
+
+    // 11. Handouts no Sidebar
+    aside.querySelectorAll('.vtt-btn-view-handout').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hId = btn.dataset.id;
+        const handout = this.handouts.find(h => h.id === hId);
+        if (handout) this.openHandoutModal(handout);
+      });
+    });
+    aside.querySelectorAll('.vtt-btn-reveal-handout').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hId = btn.dataset.id;
+        const handout = this.handouts.find(h => h.id === hId);
+        if (handout && this.sync) {
+          this.sync.sendHandout(handout, 'show');
+          this.sync.sendSystemEvent(`O Mestre revelou a pista: "${handout.title}"`);
+        }
+      });
+    });
+    aside.querySelector('#vtt-btn-add-handout')?.addEventListener('click', () => this.promptAddHandout());
+    aside.querySelector('#vtt-btn-add-handout-empty')?.addEventListener('click', () => this.promptAddHandout());
+
+    // 12. GM Panel no Sidebar
+    aside.querySelector('#vtt-btn-gm-campaign-edit')?.addEventListener('click', () => {
+      const name = prompt('Novo Nome da Campanha:', this.sessionData.campaignName);
+      if (name) {
+        this.sessionData.campaignName = name.trim();
+        localStorage.setItem('paroxismo_campaign_name', this.sessionData.campaignName);
+        if (this.sync) this.sync.sendSessionState({ campaignName: this.sessionData.campaignName });
+        this.renderHeaderOnly();
+        this.renderCenterStageOnly();
+      }
+    });
+    aside.querySelector('#vtt-btn-gm-notes')?.addEventListener('click', () => {
+      const notes = prompt('Diretriz Tática / Objetivo:', this.sessionData.tacticalNotes);
+      if (notes !== null) {
+        this.sessionData.tacticalNotes = notes.trim();
+        localStorage.setItem('paroxismo_tactical_notes', this.sessionData.tacticalNotes);
+        if (this.sync) this.sync.sendSessionState({ tacticalNotes: this.sessionData.tacticalNotes });
+        this.renderCenterStageOnly();
+      }
+    });
+    aside.querySelector('#vtt-btn-gm-init-combat')?.addEventListener('click', () => this.openCombatSetupModal());
+    aside.querySelector('#vtt-btn-gm-scene')?.addEventListener('click', () => this.promptGmScene());
+    aside.querySelector('#vtt-btn-gm-secret-roll')?.addEventListener('click', () => this.executeGmSecretRoll());
+    aside.querySelector('#vtt-btn-gm-pause')?.addEventListener('click', () => {
+      this.sessionData.status = this.sessionData.status === 'paused' ? 'active' : 'paused';
+      localStorage.setItem('paroxismo_session_status', this.sessionData.status);
+      if (this.sync) {
+        this.sync.sendSessionState({ status: this.sessionData.status });
+        this.sync.sendSystemEvent(this.sessionData.status === 'paused' ? 'O Mestre pausou a sessão.' : 'O Mestre retomou a sessão.');
+      }
+      this.renderHeaderOnly();
+    });
+    aside.querySelector('#vtt-btn-gm-sys-msg')?.addEventListener('click', () => {
+      const msg = prompt('Mensagem do Sistema para todos:');
+      if (msg && msg.trim() && this.sync) {
+        this.sync.sendSystemEvent(msg.trim());
+      }
+    });
   }
 
   renderInitiativeListOnly() {
