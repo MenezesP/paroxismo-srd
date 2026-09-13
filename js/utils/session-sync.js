@@ -35,6 +35,7 @@ export class SessionSync {
     
     // Registro de participantes ativos { [userId]: { user, character, isGm, lastSeen, status } }
     this.participants = new Map();
+    this._seenIds = new Set();
   }
 
   sanitizeTopic(id) {
@@ -196,6 +197,9 @@ export class SessionSync {
       payload
     };
 
+    // Disparo local imediato (Zero-latency / Offline-first)
+    this.handleIncoming(message);
+
     try {
       await fetch(`https://ntfy.sh/${this.topic}`, {
         method: 'POST',
@@ -329,6 +333,17 @@ export class SessionSync {
   // ----------------------------------------------------
   handleIncoming(msg) {
     if (!msg || !msg.type) return;
+
+    // Deduplicação de mensagens para evitar duplicatas vindas do WebSocket echo
+    const msgKey = msg.payload?.id || (msg.type + '_' + msg.senderId + '_' + (msg.createdAt || msg.timestamp));
+    if (msgKey) {
+      if (this._seenIds.has(msgKey)) return;
+      this._seenIds.add(msgKey);
+      if (this._seenIds.size > 200) {
+        const first = this._seenIds.values().next().value;
+        this._seenIds.delete(first);
+      }
+    }
 
     const isMe = msg.senderId === this.user.id;
 
