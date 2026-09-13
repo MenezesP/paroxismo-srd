@@ -26,7 +26,7 @@ import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v1
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v11';
 import { DiscordActivity } from './utils/discord-activity.js?v=release_v11';
 import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
-import { SessionViewer } from './components/session-viewer.js?v=sess_v6';
+import { SessionViewer } from './components/session-viewer.js?v=sess_v7';
 
 class App {
   constructor() {
@@ -162,6 +162,7 @@ class App {
     if (!mainContent) return;
 
     if (this.currentTab !== 'mesa' && this.currentTab !== 'sessao') {
+      document.body.classList.remove('vtt-view-active');
       if (this.components.sessionViewer && typeof this.components.sessionViewer.destroy === 'function') {
         try {
           this.components.sessionViewer.destroy();
@@ -170,6 +171,8 @@ class App {
           console.warn('Error destroying sessionViewer:', e);
         }
       }
+    } else {
+      document.body.classList.add('vtt-view-active');
     }
 
     switch (this.currentTab) {
@@ -2348,6 +2351,7 @@ class App {
   }
 
   renderSession(container, params = {}) {
+    document.body.classList.add('vtt-view-active');
     if (this.components.sessionViewer && typeof this.components.sessionViewer.destroy === 'function') {
       try {
         this.components.sessionViewer.destroy();

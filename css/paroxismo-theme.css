@@ -3144,4 +3144,88 @@ body.discord-activity-mode .dossier-photo-frame {
   max-width: 220px !important;
 }
 
+/* ============================================================ */
+/* MESA VIRTUAL (VTT): VIEWPORT-LOCKED ARCHITECTURE             */
+/* Impede que o chat, feed ou colunas estiquem a página         */
+/* ============================================================ */
+body.vtt-view-active {
+  overflow: hidden !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
+body.vtt-view-active .nadir-game-viewport {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+body.vtt-view-active .nadir-game-viewport > div.flex-1 {
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.vtt-view-active #main-content {
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.vtt-view-active #session-viewer-container {
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.vtt-view-active .vtt-layout {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-bottom: 0 !important;
+}
+
+body.vtt-view-active #vtt-left-sidebar,
+body.vtt-view-active #vtt-center-stage,
+body.vtt-view-active #vtt-right-sidebar {
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+}
+
+body.vtt-view-active #vtt-dice-dock {
+  position: relative !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+}
+
 

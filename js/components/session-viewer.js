@@ -70,6 +70,7 @@ export class SessionViewer {
   }
 
   destroy() {
+    document.body.classList.remove('vtt-view-active');
     if (this.sync) {
       try { this.sync.disconnect(); } catch (e) {}
       this.sync = null;
@@ -292,32 +293,32 @@ export class SessionViewer {
   // ============================================================
   render() {
     this.container.innerHTML = `
-      <div class="vtt-layout w-full min-h-[calc(100vh-80px)] bg-[#040508] text-[#cbd0dc] flex flex-col font-sans select-none overflow-x-hidden pb-16 lg:pb-12">
+      <div class="vtt-layout w-full h-full max-h-screen bg-[#040508] text-[#cbd0dc] flex flex-col font-sans select-none overflow-hidden relative">
         
         <!-- ============================================================ -->
         <!-- 1. SUB-HUD DA SESSÃO (BARRA SUPERIOR DE COMANDO) -->
         <!-- ============================================================ -->
-        <header id="vtt-header" class="w-full bg-[#07090e]/95 border-b border-[#e21b23]/40 px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md sticky top-0 z-30 shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
+        <header id="vtt-header" class="flex-shrink-0 w-full bg-[#07090e]/95 border-b border-[#e21b23]/40 px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md z-30 shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
           ${this.getHeaderHTML()}
         </header>
 
         <!-- ============================================================ -->
         <!-- 2. PALCO PRINCIPAL DE 3 COLUNAS (DESKTOP) OU TABS (MOBILE)   -->
         <!-- ============================================================ -->
-        <div class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 p-2 sm:p-4 min-h-0">
+        <div id="vtt-main-stage-grid" class="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 p-2 sm:p-3 min-h-0 overflow-hidden">
           
           <!-- COLUNA ESQUERDA: FERRAMENTAS DA SESSÃO (Lg: 3 cols) -->
-          <aside id="vtt-left-sidebar" class="vtt-col-left ${this.activeMobileTab === 'agente' || this.activeMobileTab === 'mestre' ? 'vtt-mobile-active-flex' : ''} lg:col-span-3 xl:col-span-3 flex-col gap-3 min-h-0 transition-all duration-300">
+          <aside id="vtt-left-sidebar" class="vtt-col-left ${this.activeMobileTab === 'agente' || this.activeMobileTab === 'mestre' ? 'vtt-mobile-active-flex' : ''} lg:col-span-3 xl:col-span-3 h-full max-h-full flex flex-col min-h-0 overflow-hidden gap-2 transition-all duration-300">
             ${this.getLeftSidebarHTML()}
           </aside>
 
           <!-- COLUNA CENTRAL: PALCO PRINCIPAL (VISÃO DA SESSÃO / CENA CINEMÁTICA) -->
-          <main id="vtt-center-stage" class="${this.activeMobileTab === 'mesa' ? 'flex' : 'hidden lg:flex'} lg:col-span-6 xl:col-span-6 flex-col gap-3 min-h-[460px] relative">
+          <main id="vtt-center-stage" class="${this.activeMobileTab === 'mesa' ? 'flex' : 'hidden lg:flex'} lg:col-span-6 xl:col-span-6 h-full max-h-full flex-col min-h-0 overflow-y-auto custom-scrollbar gap-3 relative pr-1">
             ${this.getCenterStageHTML()}
           </main>
 
           <!-- COLUNA DIREITA: CHAT & LOG DA SESSÃO (Lg: 3 cols) -->
-          <aside id="vtt-right-sidebar" class="vtt-col-right ${this.activeMobileTab === 'chat' ? 'vtt-mobile-active-flex' : ''} lg:col-span-3 xl:col-span-3 flex-col min-h-[500px] lg:min-h-0 bg-[#07090e]/90 border border-white/10 relative">
+          <aside id="vtt-right-sidebar" class="vtt-col-right ${this.activeMobileTab === 'chat' ? 'vtt-mobile-active-flex' : ''} lg:col-span-3 xl:col-span-3 h-full max-h-full flex flex-col min-h-0 overflow-hidden bg-[#07090e]/90 border border-white/10 relative">
             ${this.getRightSidebarHTML()}
           </aside>
 
@@ -326,7 +327,7 @@ export class SessionViewer {
         <!-- ============================================================ -->
         <!-- 3. BARRA PERMANENTE DE DADOS (DOCK INFERIOR) -->
         <!-- ============================================================ -->
-        <footer id="vtt-dice-dock" class="fixed bottom-0 left-0 right-0 z-40 bg-[#07090e]/95 border-t border-[#e21b23]/50 backdrop-blur-lg px-2 sm:px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-[0_-5px_25px_rgba(0,0,0,0.9)]">
+        <footer id="vtt-dice-dock" class="flex-shrink-0 w-full bg-[#07090e]/95 border-t border-[#e21b23]/50 backdrop-blur-lg px-2 sm:px-4 py-1.5 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-[0_-5px_25px_rgba(0,0,0,0.9)] z-30">
           ${this.getDiceDockHTML()}
         </footer>
 
