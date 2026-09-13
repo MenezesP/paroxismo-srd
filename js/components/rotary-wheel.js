@@ -36,12 +36,13 @@ export class RotaryWheel {
       { id: 'arquetipos', num: 'V', label: 'ARQUÉTIPOS' },
       { id: 'criacao', num: 'VI', label: 'A FORJA' },
       { id: 'grimorio', num: 'VII', label: 'GRIMÓRIO' },
-      { id: 'ficha', num: 'VIII', label: 'O DOSSIER' }
+      { id: 'ficha', num: 'VIII', label: 'O DOSSIER' },
+      { id: 'mesa', num: 'IX', label: 'A MESA' }
     ];
 
     this.gmItems = [
-      { id: 'bestiario', num: 'IX', label: 'AMEAÇAS', isGm: true },
-      { id: 'aventura', num: 'X', label: 'O ESTRONDO', isGm: true }
+      { id: 'bestiario', num: 'X', label: 'AMEAÇAS', isGm: true },
+      { id: 'aventura', num: 'XI', label: 'O ESTRONDO', isGm: true }
     ];
 
     this.items = [...this.baseItems];

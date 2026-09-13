@@ -13,8 +13,8 @@
   <!-- Tailwind CSS Compilado Estático (Seguro para Discord Activity, sem eval) -->
   <link rel="stylesheet" href="css/tailwind.min.css?v=release_v11" />
 
-  <link rel="stylesheet" href="css/paroxismo-theme.css?v=release_v11" />
-  <link rel="stylesheet" href="css/components.css?v=cad_forge_v1" />
+  <link rel="stylesheet" href="css/paroxismo-theme.css?v=release_v12" />
+  <link rel="stylesheet" href="css/components.css?v=vtt_v1" />
 </head>
 <body class="bg-[#050505] text-[#ffffff] min-h-screen selection:bg-[#e21b23] selection:text-[#050505] relative">
 
@@ -83,6 +83,10 @@
   <!-- BARRA DE FERRAMENTAS FLUTUANTE (HUD SUPERIOR DIREITO)        -->
   <!-- ============================================================ -->
   <div class="fixed top-3 right-3 sm:top-4 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 print:hidden">
+    <button id="quick-table-btn" onclick="window.location.hash='mesa'" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/90 hover:bg-[#121622] text-[#cbd0dc] hover:text-[#e21b23] border border-white/10 hover:border-[#e21b23] backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)] cursor-pointer" title="Entrar na Mesa Virtual / Sessão">
+      <span class="text-[#e21b23]">✠</span>
+      <span class="hidden sm:inline">MESA</span>
+    </button>
     <button id="palette-trigger-btn" class="px-2.5 sm:px-3 py-1.5 bg-[#07090e]/90 hover:bg-[#121622] text-[#cbd0dc] hover:text-white border border-white/10 hover:border-[#06b6d4] backdrop-blur-md text-[10px] sm:text-[11px] font-mono flex items-center gap-1.5 sm:gap-2 transition-all shadow-[0_4px_15px_rgba(0,0,0,0.5)] cursor-pointer" title="Busca Inteligente (Ctrl + K)">
       <span class="text-[#06b6d4]">⌕</span>
       <span class="hidden sm:inline">BUSCA</span>
@@ -197,6 +201,6 @@
   <script src="js/vendor/cannon.min.js"></script>
 
   <!-- Script Principal SPA -->
-  <script type="module" src="js/app.js?v=release_v11"></script>
+  <script type="module" src="js/app.js?v=release_v13"></script>
 </body>
 </html>

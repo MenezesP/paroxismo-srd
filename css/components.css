@@ -63,3 +63,62 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ============================================================ */
+/* PAROXISMO — VTT MESA VIRTUAL (TERMINAL CAD ESTILIZADO)       */
+/* ============================================================ */
+
+/* Barra de rolagem tática militar para o chat e painéis da mesa */
+#vtt-chat-feed::-webkit-scrollbar,
+#vtt-left-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+#vtt-chat-feed::-webkit-scrollbar-track,
+#vtt-left-content::-webkit-scrollbar-track {
+  background: rgba(5, 5, 5, 0.8);
+}
+
+#vtt-chat-feed::-webkit-scrollbar-thumb,
+#vtt-left-content::-webkit-scrollbar-thumb {
+  background: #242833;
+  border-radius: 2px;
+}
+
+#vtt-chat-feed::-webkit-scrollbar-thumb:hover,
+#vtt-left-content::-webkit-scrollbar-thumb:hover {
+  background: #e21b23;
+}
+
+/* Animações e Efeitos da Mesa */
+@keyframes vttTurnPulse {
+  0%, 100% { border-color: rgba(6, 182, 212, 0.4); box-shadow: 0 0 10px rgba(6, 182, 212, 0.2); }
+  50% { border-color: rgba(6, 182, 212, 0.9); box-shadow: 0 0 20px rgba(6, 182, 212, 0.5); }
+}
+
+.vtt-turn-active {
+  animation: vttTurnPulse 2s infinite ease-in-out;
+}
+
+/* Colunas do VTT Mesa Virtual */
+.vtt-col-left,
+.vtt-col-right {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .vtt-col-left,
+  .vtt-col-right {
+    display: flex !important;
+  }
+}
+
+.vtt-mobile-active-flex {
+  display: flex !important;
+}
+
+.vtt-mobile-active-block {
+  display: block !important;
+}
+
+

@@ -26,6 +26,7 @@ import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v1
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v11';
 import { DiscordActivity } from './utils/discord-activity.js?v=release_v11';
 import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
+import { SessionViewer } from './components/session-viewer.js?v=sess_v2';
 
 class App {
   constructor() {
@@ -131,6 +132,16 @@ class App {
       this.rotaryWheel.setActiveTab(tab, false);
     }
 
+    const rotarySpacer = document.getElementById('rotary-desktop-spacer');
+    if (tab === 'mesa' || tab === 'sessao') {
+      if (rotarySpacer) rotarySpacer.classList.add('hidden');
+      if (this.rotaryWheel && !this.rotaryWheel.isCollapsed) {
+        this.rotaryWheel.toggleDrawer(true);
+      }
+    } else {
+      if (rotarySpacer) rotarySpacer.classList.remove('hidden');
+    }
+
     // Rolagem instantânea para o topo sem bloquear a thread do navegador
     window.scrollTo(0, 0);
 
@@ -187,6 +198,10 @@ class App {
         break;
       case 'ficha':
         this.renderCharacterSheet(mainContent);
+        break;
+      case 'mesa':
+      case 'sessao':
+        this.renderSession(mainContent, params);
         break;
       default:
         this.renderHome(mainContent);
@@ -2319,6 +2334,13 @@ class App {
       </div>
     `;
     this.components.characterSheet = new CharacterSheet('character-sheet-container');
+  }
+
+  renderSession(container, params = {}) {
+    container.innerHTML = `
+      <div id="session-viewer-container" class="w-full"></div>
+    `;
+    this.components.sessionViewer = new SessionViewer('session-viewer-container', this);
   }
 
   setupCommandPalette() {

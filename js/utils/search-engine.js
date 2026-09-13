@@ -267,6 +267,32 @@ export class SearchEngine {
         navParams: { subtab: fs.subtab }
       });
     });
+
+    // 12. Navegação Direta: A Mesa Virtual & O Dossiê
+    this.index.push({
+      id: 'nav-mesa',
+      category: 'mesa',
+      categoryTag: 'Mesa Virtual',
+      badgeColor: '#e21b23',
+      title: 'A Mesa Virtual (Sessão ao Vivo)',
+      subtitle: 'Interface de Sessão em Tempo Real: Chat, Rolagem 3D, Iniciativa e Mestre',
+      content: 'mesa sessao ao vivo virtual vtt dados rolagens iniciativa participantes combate mestre jogador',
+      data: {},
+      targetTab: 'mesa',
+      navParams: {}
+    });
+    this.index.push({
+      id: 'nav-ficha',
+      category: 'ficha',
+      categoryTag: 'Dossiê do Agente',
+      badgeColor: '#06b6d4',
+      title: 'O Dossiê do Agente (Ficha de Personagem)',
+      subtitle: 'Atributos, Perícias, Rituais Aprendidos e Inventário Tático',
+      content: 'ficha personagem dossie agente atributos pericias rituais pv pe inventario',
+      data: {},
+      targetTab: 'ficha',
+      navParams: {}
+    });
   }
 
   search(query, categoryFilter = "all", limit = 15) {
