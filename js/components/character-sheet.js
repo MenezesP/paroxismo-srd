@@ -958,8 +958,12 @@ export class CharacterSheet {
               </span>
               <h3 class="text-2xl font-serif font-black text-white">Rituais Vinculados à Alma</h3>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
               <span class="text-xs font-mono text-[#8e95a5]">RITUAIS VINCULADOS: <strong class="text-white">${char.customRituals.length}</strong></span>
+              <a href="#grimorio" class="px-3 py-1 bg-[#09111c] hover:bg-[#06b6d4] hover:text-black border border-[#06b6d4]/50 text-xs font-mono font-bold text-[#67e8f9] transition-all flex items-center gap-1.5 cursor-pointer">
+                <img src="${ICONS8.book('06B6D4', 14)}" class="w-3.5 h-3.5 object-contain" alt="" />
+                <span>[ CONSULTAR GRIMÓRIO ]</span>
+              </a>
               <a href="#criacao" class="px-3 py-1 bg-[#1a1315] hover:bg-[#e21b23] hover:text-black border border-[#e21b23]/50 text-xs font-mono font-bold text-[#ff333d] transition-all flex items-center gap-1.5 cursor-pointer">
                 <img src="${ICONS8.scroll('FF333D', 14)}" class="w-3.5 h-3.5 object-contain" alt="" />
                 <span>FORJAR NOVO RITUAL</span>
@@ -975,13 +979,19 @@ export class CharacterSheet {
               <div class="space-y-1">
                 <h4 class="text-base font-serif font-bold text-white uppercase">Nenhum Ritual Forjado ou Vinculado</h4>
                 <p class="text-xs font-liturgical italic text-[#8e95a5] max-w-lg mx-auto">
-                  Crie rituais originais e balanceados com custos precisos em PE, círculos (1º ao 4º) e efeitos na Forja (Aba VI) e vincule diretamente à sua ficha.
+                  Você pode vincular rituais oficiais diretamente do Grimório (200 rituais) ou forjar rituais personalizados no Ateliê da Forja.
                 </p>
               </div>
-              <a href="#criacao" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#e21b23] hover:bg-white text-black font-mono font-bold text-xs transition-colors shadow-[0_0_15px_rgba(226,27,35,0.4)]">
-                <img src="${ICONS8.anvil('000000', 14)}" class="w-3.5 h-3.5 object-contain" alt="" />
-                <span>[ ABRIR ATELIÊ DE RITUAIS ]</span>
-              </a>
+              <div class="flex items-center justify-center gap-3 flex-wrap pt-2">
+                <a href="#grimorio" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#06b6d4] hover:bg-white text-black font-mono font-black text-xs transition-colors shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                  <img src="${ICONS8.book('000000', 14)}" class="w-3.5 h-3.5 object-contain" alt="" />
+                  <span>[ CONSULTAR GRIMÓRIO (200 RITUAIS) ]</span>
+                </a>
+                <a href="#criacao" class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#e21b23] hover:bg-white text-black font-mono font-bold text-xs transition-colors shadow-[0_0_15px_rgba(226,27,35,0.4)]">
+                  <img src="${ICONS8.anvil('000000', 14)}" class="w-3.5 h-3.5 object-contain" alt="" />
+                  <span>[ ABRIR ATELIÊ DE RITUAIS ]</span>
+                </a>
+              </div>
             </div>
           ` : `
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">

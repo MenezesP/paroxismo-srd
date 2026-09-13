@@ -1531,56 +1531,135 @@ export class ForgeViewer {
             <!-- Armas Gravadas -->
             <div class="space-y-3">
               <div class="flex items-center justify-between text-[11px] border-b border-white/[0.08] pb-1.5">
-                <span class="font-bold text-[#e21b23] uppercase">ARMAS FORJADAS (${data.weapons.length})</span>
+                <span class="font-bold text-[#e21b23] uppercase flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 bg-[#e21b23] rounded-full inline-block"></span>
+                  ARMAS FORJADAS (${data.weapons.length})
+                </span>
               </div>
-              <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <div class="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
                 ${data.weapons.length === 0 ? `
-                  <span class="text-[10px] text-[#8e95a5] italic block">Nenhuma arma salva.</span>
-                ` : data.weapons.map((w, idx) => `
-                  <div class="p-3 bg-[#05080e] border border-white/[0.06] hover:border-white/15 transition-all flex items-center justify-between rounded-xs group">
-                    <div class="flex items-center gap-3">
-                      ${w.imageUrl ? `
-                        <img src="${w.imageUrl}" class="w-9 h-9 object-cover rounded-xs border border-white/10 flex-shrink-0" alt="" />
-                      ` : `
-                        <div class="w-9 h-9 bg-white/5 border border-white/10 rounded-xs flex items-center justify-center flex-shrink-0">
-                          <img src="${ICONS8.sword('8E95A5', 16)}" class="w-4 h-4 object-contain opacity-40" alt="" />
+                  <span class="text-[10px] text-[#8e95a5] italic block py-4 text-center border border-white/[0.04]">Nenhuma arma salva.</span>
+                ` : data.weapons.map((w, idx) => {
+                  const gripLabel = w.grip === 'leve' ? 'Leve' : w.grip === 'pesada' ? 'Pesada' : 'Média';
+                  const hitLabel = w.hitMod === 'for' ? 'Luta' : 'Pontaria';
+                  return `
+                  <div class="p-3.5 bg-[#05080e] border border-white/[0.08] hover:border-[#e21b23]/40 transition-all rounded-xs space-y-2.5 group relative">
+                    <div class="flex items-start justify-between gap-2.5">
+                      <div class="flex items-start gap-2.5 min-w-0">
+                        ${w.imageUrl ? `
+                          <img src="${w.imageUrl}" class="w-9 h-9 object-cover rounded-xs border border-white/10 flex-shrink-0" alt="" />
+                        ` : `
+                          <div class="w-9 h-9 bg-white/5 border border-white/10 rounded-xs flex items-center justify-center flex-shrink-0">
+                            <img src="${ICONS8.sword('E21B23', 18)}" class="w-4.5 h-4.5 object-contain" alt="" />
+                          </div>
+                        `}
+                        <div class="min-w-0">
+                          <span class="text-[9px] font-mono text-[#e21b23] font-bold uppercase tracking-wider block truncate">[ ${w.type || 'BÉLICA'} ]</span>
+                          <strong class="text-white block font-serif text-sm leading-snug truncate">${w.name}</strong>
                         </div>
-                      `}
-                      <div>
-                        <strong class="text-white block font-serif text-xs">${w.name}</strong>
-                        <span class="text-[10px] text-[#8e95a5] block">${w.dmgDice || w.damage} • ${w.range}</span>
+                      </div>
+                      <span class="text-[10px] font-mono text-[#cbd0dc] font-bold bg-[#0d121d] border border-white/10 px-2 py-0.5 rounded-xs flex-shrink-0">
+                        ${w.dmgDice || w.damage || '1d6'}
+                      </span>
+                    </div>
+
+                    <!-- Métricas Rápidas -->
+                    <div class="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-[#8e95a5] bg-[#020408] p-2 border border-white/[0.04] rounded-xs">
+                      <div><span class="text-white/40">CRÍTICO:</span> <span class="text-white font-bold">${w.crit || '20/x2'}</span></div>
+                      <div><span class="text-white/40">ALCANCE:</span> <span class="text-white font-bold">${w.range || 'Curto'}</span></div>
+                      <div><span class="text-white/40">PORTE:</span> <span class="text-[#cbd0dc]">${gripLabel}</span></div>
+                      <div><span class="text-white/40">TESTE:</span> <span class="text-[#cbd0dc]">${hitLabel}</span></div>
+                    </div>
+
+                    ${w.special ? `
+                      <div class="text-[10px] font-mono text-[#cbd0dc] bg-white/[0.02] p-1.5 border-l-2 border-[#e21b23]/60 pl-2 leading-relaxed line-clamp-2">
+                        <span class="text-[#e21b23] font-bold">REGRAS:</span> ${w.special}
+                      </div>
+                    ` : ''}
+
+                    ${w.mods && w.mods.length > 0 ? `
+                      <div class="text-[9px] font-mono text-[#06b6d4] bg-[#06b6d4]/5 px-2 py-1 border border-[#06b6d4]/20 rounded-xs">
+                        MODS: ${w.mods.join(' • ')}
+                      </div>
+                    ` : ''}
+
+                    <!-- Ações -->
+                    <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[10px] font-mono">
+                      <button class="inspect-vault-item-btn text-[#8e95a5] hover:text-white flex items-center gap-1 cursor-pointer transition-colors" data-type="weapon" data-idx="${idx}">
+                        <span>👁</span> <span>INSPECIONAR</span>
+                      </button>
+                      <div class="flex items-center gap-2">
+                        <button class="equip-vault-weapon-btn px-2.5 py-1 bg-[#e21b23]/10 hover:bg-[#e21b23] text-[#ff4d58] hover:text-black border border-[#e21b23]/40 font-bold transition-all cursor-pointer rounded-xs" data-idx="${idx}" title="Equipar na Ficha">
+                          [ EQUIPAR ]
+                        </button>
+                        <button class="delete-weapon-btn text-[#8e95a5] hover:text-[#e21b23] p-1 cursor-pointer transition-colors" data-idx="${idx}" title="Excluir Arma">
+                          ✕
+                        </button>
                       </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <button class="equip-vault-weapon-btn text-[10px] font-mono text-[#cbd0dc] hover:text-[#e21b23] cursor-pointer" data-idx="${idx}" title="Equipar na Ficha">
-                        [EQUIPAR]
-                      </button>
-                      <button class="delete-weapon-btn text-[#8e95a5] hover:text-[#e21b23] text-xs p-1 cursor-pointer" data-idx="${idx}" title="Apagar">✕</button>
-                    </div>
                   </div>
-                `).join('')}
+                `;}).join('')}
               </div>
             </div>
 
             <!-- Rituais Gravados -->
             <div class="space-y-3">
               <div class="flex items-center justify-between text-[11px] border-b border-white/[0.08] pb-1.5">
-                <span class="font-bold text-[#06b6d4] uppercase">RITUAIS FORJADOS (${data.rituals.length})</span>
+                <span class="font-bold text-[#06b6d4] uppercase flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 bg-[#06b6d4] rounded-full inline-block"></span>
+                  RITUAIS FORJADOS (${data.rituals.length})
+                </span>
               </div>
-              <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <div class="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
                 ${data.rituals.length === 0 ? `
-                  <span class="text-[10px] text-[#8e95a5] italic block">Nenhum ritual salvo.</span>
+                  <span class="text-[10px] text-[#8e95a5] italic block py-4 text-center border border-white/[0.04]">Nenhum ritual salvo.</span>
                 ` : data.rituals.map((r, idx) => `
-                  <div class="p-3 bg-[#05080e] border border-white/[0.06] hover:border-white/15 transition-all flex items-center justify-between rounded-xs">
-                    <div>
-                      <strong class="text-white block font-serif text-xs">${r.name}</strong>
-                      <span class="text-[10px] text-[#8e95a5] block">${r.circle}º Círculo • ${r.peCost} PE</span>
+                  <div class="p-3.5 bg-[#05080e] border border-white/[0.08] hover:border-[#06b6d4]/40 transition-all rounded-xs space-y-2.5 group relative">
+                    <div class="flex items-start justify-between gap-2.5">
+                      <div class="min-w-0">
+                        <span class="text-[9px] font-mono text-[#06b6d4] font-bold uppercase tracking-wider block">
+                          [ ${r.circle || 1}º CÍRCULO • ${r.peCost || 1} PE ]
+                        </span>
+                        <strong class="text-white block font-serif text-sm leading-snug truncate">${r.name}</strong>
+                      </div>
+                      <span class="text-[9px] font-mono text-[#06b6d4] uppercase px-1.5 py-0.5 bg-[#06b6d4]/10 border border-[#06b6d4]/30 rounded-xs flex-shrink-0 font-bold">
+                        ${r.emotion || 'Rancor'}
+                      </span>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <button class="equip-vault-ritual-btn text-[10px] font-mono text-[#cbd0dc] hover:text-[#06b6d4] cursor-pointer" data-idx="${idx}" title="Gravar no Grimório">
-                        [GRAVAR]
+
+                    <!-- Métricas Rápidas -->
+                    <div class="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-[#8e95a5] bg-[#020408] p-2 border border-white/[0.04] rounded-xs">
+                      <div><span class="text-white/40">EXEC:</span> <span class="text-white font-bold">${r.execution || 'Padrão'}</span></div>
+                      <div><span class="text-white/40">ALCANCE:</span> <span class="text-white font-bold">${r.range || 'Curto'}</span></div>
+                      <div><span class="text-white/40">DURAÇÃO:</span> <span class="text-[#cbd0dc]">${r.duration || 'Instantânea'}</span></div>
+                      <div><span class="text-white/40">RESIST.:</span> <span class="text-[#cbd0dc]">${r.save || 'Nenhuma'}</span></div>
+                    </div>
+
+                    ${r.effect ? `
+                      <div class="text-[10px] font-serif text-[#cbd0dc] bg-white/[0.02] p-1.5 border-l-2 border-[#06b6d4]/60 pl-2 leading-relaxed line-clamp-2">
+                        <span class="text-[#06b6d4] font-mono font-bold">EFEITO:</span> ${r.effect}
+                      </div>
+                    ` : ''}
+
+                    ${r.amplification ? `
+                      <div class="text-[9px] font-mono text-[#cbd0dc] bg-[#06b6d4]/5 px-2 py-1 border border-[#06b6d4]/20 rounded-xs line-clamp-1">
+                        AMPLIAÇÃO: ${r.amplification}
+                      </div>
+                    ` : ''}
+
+                    <!-- Ações -->
+                    <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[10px] font-mono">
+                      <button class="inspect-vault-item-btn text-[#8e95a5] hover:text-white flex items-center gap-1 cursor-pointer transition-colors" data-type="ritual" data-idx="${idx}">
+                        <span>👁</span> <span>INSPECIONAR</span>
                       </button>
-                      <button class="delete-ritual-btn text-[#8e95a5] hover:text-[#e21b23] text-xs p-1 cursor-pointer" data-idx="${idx}">✕</button>
+                      <div class="flex items-center gap-2">
+                        <button class="equip-vault-ritual-btn px-2.5 py-1 bg-[#06b6d4]/10 hover:bg-[#06b6d4] text-[#22d3ee] hover:text-black border border-[#06b6d4]/40 font-bold transition-all cursor-pointer rounded-xs" data-idx="${idx}" title="Gravar na Ficha">
+                          [ GRAVAR ]
+                        </button>
+                        <button class="delete-ritual-btn text-[#8e95a5] hover:text-[#e21b23] p-1 cursor-pointer transition-colors" data-idx="${idx}" title="Excluir Ritual">
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   </div>
                 `).join('')}
@@ -1590,25 +1669,79 @@ export class ForgeViewer {
             <!-- Origens Gravadas -->
             <div class="space-y-3">
               <div class="flex items-center justify-between text-[11px] border-b border-white/[0.08] pb-1.5">
-                <span class="font-bold text-[#fbbf24] uppercase">ORIGENS FORJADAS (${data.origins.length})</span>
+                <span class="font-bold text-[#fbbf24] uppercase flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 bg-[#fbbf24] rounded-full inline-block"></span>
+                  ORIGENS FORJADAS (${data.origins.length})
+                </span>
               </div>
-              <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+              <div class="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
                 ${data.origins.length === 0 ? `
-                  <span class="text-[10px] text-[#8e95a5] italic block">Nenhuma origem salva.</span>
-                ` : data.origins.map((o, idx) => `
-                  <div class="p-3 bg-[#05080e] border border-white/[0.06] hover:border-white/15 transition-all flex items-center justify-between rounded-xs">
-                    <div>
-                      <strong class="text-white block font-serif text-xs">${o.name}</strong>
-                      <span class="text-[10px] text-[#8e95a5] block">${o.skills.join(', ')}</span>
+                  <span class="text-[10px] text-[#8e95a5] italic block py-4 text-center border border-white/[0.04]">Nenhuma origem salva.</span>
+                ` : data.origins.map((o, idx) => {
+                  const modelObj = FORGE_RULES.origins?.models?.find(m => m.id === o.model);
+                  const modelLabel = modelObj ? modelObj.name : (o.model || 'Especialista');
+                  const skillLabels = (o.skills || []).map(sId => {
+                    const found = SKILLS_DATA.find(s => s.id === sId);
+                    return found ? found.name : sId.toUpperCase();
+                  }).join(' • ');
+
+                  return `
+                  <div class="p-3.5 bg-[#05080e] border border-white/[0.08] hover:border-[#fbbf24]/40 transition-all rounded-xs space-y-2.5 group relative">
+                    <div class="flex items-start justify-between gap-2.5">
+                      <div class="min-w-0">
+                        <span class="text-[9px] font-mono text-[#fbbf24] font-bold uppercase tracking-wider block truncate">
+                          [ MODELO: ${modelLabel.toUpperCase()} ]
+                        </span>
+                        <strong class="text-white block font-serif text-sm leading-snug truncate">${o.name}</strong>
+                      </div>
+                      <span class="text-[9px] font-mono text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/30 px-1.5 py-0.5 rounded-xs flex-shrink-0 font-bold">
+                        ORIGEM
+                      </span>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <button class="equip-vault-origin-btn text-[10px] font-mono text-[#cbd0dc] hover:text-[#fbbf24] cursor-pointer" data-idx="${idx}" title="Atribuir na Ficha">
-                        [ATRIBUIR]
+
+                    ${o.desc ? `
+                      <p class="text-[10px] font-serif italic text-[#8e95a5] leading-relaxed line-clamp-2 border-l border-white/10 pl-2">
+                        "${o.desc}"
+                      </p>
+                    ` : ''}
+
+                    <!-- Perícias -->
+                    <div class="text-[10px] font-mono bg-[#020408] p-2 border border-white/[0.04] rounded-xs space-y-1">
+                      <div class="text-[#8e95a5]">
+                        <span class="text-white/40">PERÍCIAS:</span>
+                        <span class="text-white font-bold uppercase">${skillLabels || 'NENHUMA'}</span>
+                      </div>
+                    </div>
+
+                    <!-- Poder de Origem -->
+                    <div class="bg-[#fbbf24]/5 border border-[#fbbf24]/20 p-2.5 rounded-xs space-y-1">
+                      <div class="flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#fbbf24]">
+                        <span>⚡</span>
+                        <span class="truncate">${o.powerName || 'Poder de Ofício'}</span>
+                      </div>
+                      ${o.powerDesc ? `
+                        <p class="text-[10px] font-mono text-[#cbd0dc] leading-relaxed line-clamp-2">
+                          ${o.powerDesc}
+                        </p>
+                      ` : ''}
+                    </div>
+
+                    <!-- Ações -->
+                    <div class="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[10px] font-mono">
+                      <button class="inspect-vault-item-btn text-[#8e95a5] hover:text-white flex items-center gap-1 cursor-pointer transition-colors" data-type="origin" data-idx="${idx}">
+                        <span>👁</span> <span>INSPECIONAR</span>
                       </button>
-                      <button class="delete-origin-btn text-[#8e95a5] hover:text-[#e21b23] text-xs p-1 cursor-pointer" data-idx="${idx}">✕</button>
+                      <div class="flex items-center gap-2">
+                        <button class="equip-vault-origin-btn px-2.5 py-1 bg-[#fbbf24]/10 hover:bg-[#fbbf24] text-[#fcd34d] hover:text-black border border-[#fbbf24]/40 font-bold transition-all cursor-pointer rounded-xs" data-idx="${idx}" title="Atribuir na Ficha">
+                          [ ATRIBUIR ]
+                        </button>
+                        <button class="delete-origin-btn text-[#8e95a5] hover:text-[#e21b23] p-1 cursor-pointer transition-colors" data-idx="${idx}" title="Excluir Origem">
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   </div>
-                `).join('')}
+                `;}).join('')}
               </div>
             </div>
 
@@ -1617,40 +1750,111 @@ export class ForgeViewer {
       </div>
     `;
 
-    // Eventos de Deleção e Re-equipamento
-    document.querySelectorAll('.delete-weapon-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // Eventos de Inspeção
+    document.querySelectorAll('.inspect-vault-item-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.type;
         const idx = parseInt(btn.dataset.idx, 10);
-        data.weapons.splice(idx, 1);
-        this.saveCustomData(data);
-        soundFX.playRuneClick();
-        this.renderVault();
+        const item = type === 'weapon' ? data.weapons[idx] : type === 'ritual' ? data.rituals[idx] : data.origins[idx];
+        if (item) {
+          this.openVaultInspectionModal(item, type, idx);
+        }
+      });
+    });
+
+    // Eventos de Deleção Segura com Modal Litúrgico
+    document.querySelectorAll('.delete-weapon-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx, 10);
+        const wpn = data.weapons[idx];
+        if (!wpn) return;
+        showLiturgicalConfirm({
+          title: "EXPURGAR ARMA",
+          subtitle: "[ ARQUIVO BÉLICO ]",
+          message: `Deseja apagar permanentemente a arma <strong>"${wpn.name}"</strong> do seu acervo pessoal da Forja?`,
+          confirmText: "EXPURGAR",
+          cancelText: "CANCELAR",
+          danger: true,
+          onConfirm: () => {
+            data.weapons.splice(idx, 1);
+            this.saveCustomData(data);
+            soundFX.playRuneClick();
+            this.renderVault();
+            showLiturgicalToast({
+              title: "ARMA EXPURGADA",
+              subtitle: wpn.name,
+              message: "Arma removida com sucesso do seu acervo.",
+              type: "info"
+            });
+          }
+        });
       });
     });
 
     document.querySelectorAll('.delete-ritual-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = parseInt(btn.dataset.idx, 10);
-        data.rituals.splice(idx, 1);
-        this.saveCustomData(data);
-        soundFX.playRuneClick();
-        this.renderVault();
+        const rit = data.rituals[idx];
+        if (!rit) return;
+        showLiturgicalConfirm({
+          title: "EXPURGAR RITUAL",
+          subtitle: "[ ARQUIVO ARCANO ]",
+          message: `Deseja apagar permanentemente a fórmula ritualística <strong>"${rit.name}"</strong> do seu acervo da Forja?`,
+          confirmText: "EXPURGAR",
+          cancelText: "CANCELAR",
+          danger: true,
+          onConfirm: () => {
+            data.rituals.splice(idx, 1);
+            this.saveCustomData(data);
+            soundFX.playRuneClick();
+            this.renderVault();
+            showLiturgicalToast({
+              title: "RITUAL EXPURGADO",
+              subtitle: rit.name,
+              message: "Ritual removido do seu acervo.",
+              type: "info"
+            });
+          }
+        });
       });
     });
 
     document.querySelectorAll('.delete-origin-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = parseInt(btn.dataset.idx, 10);
-        data.origins.splice(idx, 1);
-        this.saveCustomData(data);
-        soundFX.playRuneClick();
-        this.renderVault();
+        const orig = data.origins[idx];
+        if (!orig) return;
+        showLiturgicalConfirm({
+          title: "EXPURGAR ORIGEM",
+          subtitle: "[ ARQUIVO BIOGRÁFICO ]",
+          message: `Deseja apagar permanentemente o dossiê da origem <strong>"${orig.name}"</strong> do seu acervo da Forja?`,
+          confirmText: "EXPURGAR",
+          cancelText: "CANCELAR",
+          danger: true,
+          onConfirm: () => {
+            data.origins.splice(idx, 1);
+            this.saveCustomData(data);
+            soundFX.playRuneClick();
+            this.renderVault();
+            showLiturgicalToast({
+              title: "ORIGEM EXPURGADA",
+              subtitle: orig.name,
+              message: "Origem removida do seu acervo.",
+              type: "info"
+            });
+          }
+        });
       });
     });
 
     // Equipar a partir do Acervo
     document.querySelectorAll('.equip-vault-weapon-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = parseInt(btn.dataset.idx, 10);
         const wpn = data.weapons[idx];
         if (!wpn) return;
@@ -1669,7 +1873,8 @@ export class ForgeViewer {
     });
 
     document.querySelectorAll('.equip-vault-ritual-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = parseInt(btn.dataset.idx, 10);
         const rit = data.rituals[idx];
         if (!rit) return;
@@ -1688,7 +1893,8 @@ export class ForgeViewer {
     });
 
     document.querySelectorAll('.equip-vault-origin-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const idx = parseInt(btn.dataset.idx, 10);
         const orig = data.origins[idx];
         if (!orig) return;
@@ -1697,7 +1903,7 @@ export class ForgeViewer {
         char.originId = orig.id;
         char.origin = orig.id;
         char.trainedSkills = char.trainedSkills || [];
-        orig.skills.forEach(s => {
+        (orig.skills || []).forEach(s => {
           if (!char.trainedSkills.includes(s)) char.trainedSkills.push(s);
         });
         this.saveCharacterDossier(char);
@@ -1730,6 +1936,281 @@ export class ForgeViewer {
           });
         }
       });
+    });
+  }
+
+  openVaultInspectionModal(item, type, idx) {
+    soundFX.playRuneClick();
+    document.getElementById('forge-vault-detail-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'forge-vault-detail-modal';
+    modal.className = 'fixed inset-0 z-[10000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none animate-fadeIn';
+
+    let contentHtml = '';
+    let headerTag = '';
+    let titleColor = 'text-white';
+    let borderColor = 'border-white/20';
+    let actionBtnHtml = '';
+
+    if (type === 'weapon') {
+      headerTag = `[ ESPECIFICAÇÃO BÉLICA // ${item.type?.toUpperCase() || 'CONVENCIONAL'} ]`;
+      borderColor = 'border-[#e21b23]/50 shadow-[0_0_40px_rgba(226,27,35,0.3)]';
+      titleColor = 'text-white';
+      
+      const gripLabel = item.grip === 'leve' ? 'Leve (1 Mão)' : item.grip === 'pesada' ? 'Pesada (2 Mãos)' : 'Média / Versátil (1 ou 2 Mãos)';
+      const hitAttr = item.hitMod === 'for' ? 'Luta (FOR)' : 'Pontaria (AGI)';
+
+      contentHtml = `
+        ${item.imageUrl ? `
+          <div class="w-full h-48 bg-[#04060a] border border-white/10 rounded-xs overflow-hidden flex items-center justify-center mb-3">
+            <img src="${item.imageUrl}" class="w-full h-full object-contain" alt="${item.name}" />
+          </div>
+        ` : ''}
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-3 text-xs font-mono">
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#e21b23] font-bold block mb-0.5">DANO</span>
+            <strong class="text-white text-sm">${item.dmgDice || item.damage || '1d6'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#e21b23] font-bold block mb-0.5">CRÍTICO</span>
+            <strong class="text-white text-sm">${item.crit || '20/x2'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#e21b23] font-bold block mb-0.5">ALCANCE</span>
+            <strong class="text-white text-sm">${item.range || 'Curto'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#e21b23] font-bold block mb-0.5">TESTE</span>
+            <strong class="text-white text-xs">${hitAttr}</strong>
+          </div>
+        </div>
+
+        <div class="space-y-2.5 text-xs font-mono">
+          <div class="bg-[#05070c] border border-white/[0.07] p-3 rounded-xs">
+            <span class="text-[9px] uppercase text-[#8e95a5] font-bold block mb-1">EMPUNHADURA & CARGA</span>
+            <span class="text-white font-bold">${gripLabel}</span>
+          </div>
+
+          <div class="bg-[#05070c] border border-white/[0.07] p-3 rounded-xs space-y-1">
+            <span class="text-[9px] uppercase text-[#e21b23] font-bold block">// PROPRIEDADES & REGRAS ESPECIAIS</span>
+            <p class="text-[#cbd0dc] leading-relaxed text-xs">${item.special || 'Nenhuma propriedade especial registrada.'}</p>
+          </div>
+
+          ${item.mods && item.mods.length > 0 ? `
+            <div class="bg-[#05070c] border border-white/[0.07] p-3 rounded-xs space-y-1">
+              <span class="text-[9px] uppercase text-[#06b6d4] font-bold block">// MODIFICAÇÕES ACOPLADAS</span>
+              <p class="text-white font-bold text-xs">${item.mods.join(' • ')}</p>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      actionBtnHtml = `
+        <button id="modal-equip-vault-btn" class="px-5 py-2.5 bg-[#e21b23] hover:bg-white text-black font-black font-mono text-xs transition-all shadow-[0_0_15px_rgba(226,27,35,0.4)] cursor-pointer rounded-xs">
+          [ EQUIPAR NA FICHA ]
+        </button>
+      `;
+
+    } else if (type === 'ritual') {
+      headerTag = `[ REGISTRO LITÚRGICO // ${item.circle || 1}º CÍRCULO • ${item.peCost || 1} PE ]`;
+      borderColor = 'border-[#06b6d4]/50 shadow-[0_0_40px_rgba(6,182,212,0.3)]';
+      titleColor = 'text-white';
+
+      contentHtml = `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-3 text-xs font-mono">
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#06b6d4] font-bold block mb-0.5">EXECUÇÃO</span>
+            <strong class="text-white">${item.execution || 'Padrão'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#06b6d4] font-bold block mb-0.5">ALCANCE</span>
+            <strong class="text-white">${item.range || 'Curto (9m)'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#06b6d4] font-bold block mb-0.5">DURAÇÃO</span>
+            <strong class="text-white">${item.duration || 'Instantânea'}</strong>
+          </div>
+          <div class="bg-[#05070c] border border-white/[0.07] p-2.5 rounded-xs">
+            <span class="text-[9px] uppercase text-[#06b6d4] font-bold block mb-0.5">RESISTÊNCIA</span>
+            <strong class="text-white">${item.save || 'Nenhuma'}</strong>
+          </div>
+        </div>
+
+        <div class="space-y-3 font-mono text-xs">
+          <div class="bg-[#05070c] border border-white/[0.07] p-3 rounded-xs space-y-1.5">
+            <span class="text-[9px] uppercase text-[#06b6d4] font-bold block">// FÓRMULA & EFEITO RITUALÍSTICO</span>
+            <p class="text-[#cbd0dc] leading-relaxed text-xs font-serif whitespace-pre-line">${item.effect || 'Efeito ritualístico personalizado.'}</p>
+          </div>
+
+          ${item.amplification ? `
+            <div class="bg-[#05070c] border border-[#06b6d4]/30 p-3 rounded-xs space-y-1.5">
+              <span class="text-[9px] uppercase text-[#22d3ee] font-bold block">// AMPLIAÇÃO ARCANÍSTICA</span>
+              <p class="text-[#cbd0dc] leading-relaxed text-xs font-serif whitespace-pre-line">${item.amplification}</p>
+            </div>
+          ` : ''}
+
+          <div class="bg-[#020408] border border-white/[0.05] p-2.5 text-[10px] text-[#8e95a5] italic rounded-xs">
+            "Selo elemental afim: ${(item.emotion || 'Rancor').toUpperCase()} • Consome ${item.peCost || 1} PE no ato da conjuração."
+          </div>
+        </div>
+      `;
+
+      actionBtnHtml = `
+        <button id="modal-equip-vault-btn" class="px-5 py-2.5 bg-[#06b6d4] hover:bg-white text-black font-black font-mono text-xs transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer rounded-xs">
+          [ GRAVAR NA FICHA ]
+        </button>
+      `;
+
+    } else if (type === 'origin') {
+      const modelObj = FORGE_RULES.origins?.models?.find(m => m.id === item.model);
+      const modelName = modelObj ? modelObj.name : (item.model || 'Especialista');
+      const modelRule = modelObj ? modelObj.rule : 'Poder passivo ou de baixo custo';
+
+      const skillNames = (item.skills || []).map(sId => {
+        const found = SKILLS_DATA.find(s => s.id === sId);
+        return found ? `${found.name} (${found.attr})` : sId.toUpperCase();
+      });
+
+      headerTag = `[ DOSSIÊ BIOGRÁFICO // MODELO: ${modelName.toUpperCase()} ]`;
+      borderColor = 'border-[#fbbf24]/50 shadow-[0_0_40px_rgba(251,191,36,0.3)]';
+      titleColor = 'text-white';
+
+      contentHtml = `
+        <div class="space-y-3 font-mono text-xs">
+          
+          ${item.desc ? `
+            <div class="bg-[#05070c] border border-white/[0.07] p-3.5 rounded-xs space-y-1">
+              <span class="text-[9px] uppercase text-[#8e95a5] font-bold block">// MEMÓRIA RESIDUAL & HISTÓRICO PRÉ-ESTRONDO</span>
+              <p class="text-[#cbd0dc] font-serif italic text-xs leading-relaxed">"${item.desc}"</p>
+            </div>
+          ` : ''}
+
+          <div class="bg-[#05070c] border border-white/[0.07] p-3 rounded-xs space-y-2">
+            <span class="text-[9px] uppercase text-[#8e95a5] font-bold block">// PERÍCIAS TREINADAS AUTOMÁTICAS (2)</span>
+            <div class="flex flex-wrap gap-2">
+              ${skillNames.map(s => `
+                <span class="px-2.5 py-1 bg-white/5 border border-white/10 text-white text-xs font-bold uppercase rounded-xs">
+                  ${s}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="bg-[#fbbf24]/5 border border-[#fbbf24]/30 p-4 rounded-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-base">⚡</span>
+                <span class="text-sm font-serif font-black text-[#fbbf24] uppercase tracking-wide">
+                  ${item.powerName || 'Poder de Ofício'}
+                </span>
+              </div>
+              <span class="text-[9px] font-mono text-[#fbbf24]/80 border border-[#fbbf24]/30 px-1.5 py-0.5 bg-[#fbbf24]/10 rounded-xs uppercase">
+                ${modelName}
+              </span>
+            </div>
+
+            <p class="text-[#cbd0dc] leading-relaxed text-xs font-mono whitespace-pre-line border-t border-[#fbbf24]/15 pt-2">
+              ${item.powerDesc || 'Nenhum efeito mecânico registrado.'}
+            </p>
+
+            <div class="text-[10px] text-[#8e95a5] italic border-t border-white/[0.05] pt-1.5">
+              Diretriz canônica de equilíbrio: ${modelRule}
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      actionBtnHtml = `
+        <button id="modal-equip-vault-btn" class="px-5 py-2.5 bg-[#fbbf24] hover:bg-white text-black font-black font-mono text-xs transition-all shadow-[0_0_15px_rgba(251,191,36,0.4)] cursor-pointer rounded-xs">
+          [ ATRIBUIR COMO MINHA ORIGEM ]
+        </button>
+      `;
+    }
+
+    modal.innerHTML = `
+      <div class="relative max-w-xl w-full bg-[#080a10] border-2 ${borderColor} p-6 sm:p-7 space-y-4 font-mono max-h-[92vh] flex flex-col rounded-xs">
+        
+        <!-- Topo da Janela -->
+        <div class="border-b border-white/[0.08] pb-3 flex items-start justify-between gap-3">
+          <div>
+            <span class="text-[9px] uppercase tracking-widest text-[#e21b23] font-bold block mb-0.5">${headerTag}</span>
+            <h3 class="text-xl sm:text-2xl font-serif font-black ${titleColor} leading-tight">${item.name}</h3>
+          </div>
+          <button id="close-forge-vault-modal-x" class="text-[#8e95a5] hover:text-[#e21b23] text-xl font-bold cursor-pointer p-1 transition-colors">✕</button>
+        </div>
+
+        <!-- Conteúdo com Rolagem -->
+        <div class="overflow-y-auto pr-1 space-y-3 flex-1 no-scrollbar">
+          ${contentHtml}
+        </div>
+
+        <!-- Rodapé da Janela -->
+        <div class="flex items-center justify-between gap-3 pt-3 border-t border-white/[0.08]">
+          <button id="close-forge-vault-modal-btn" class="px-4 py-2 bg-[#05070a] hover:bg-[#151a24] text-[#8e95a5] hover:text-white border border-white/10 text-xs font-bold transition-all cursor-pointer rounded-xs">
+            [ FECHAR ]
+          </button>
+          ${actionBtnHtml}
+        </div>
+
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const cleanup = () => modal.remove();
+    modal.querySelector('#close-forge-vault-modal-x')?.addEventListener('click', cleanup);
+    modal.querySelector('#close-forge-vault-modal-btn')?.addEventListener('click', cleanup);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) cleanup();
+    });
+
+    modal.querySelector('#modal-equip-vault-btn')?.addEventListener('click', () => {
+      cleanup();
+      if (type === 'weapon') {
+        const char = this.getCharacterDossier();
+        char.customWeapons = char.customWeapons || [];
+        char.customWeapons.push(item);
+        this.saveCharacterDossier(char);
+        soundFX.playDiceRoll();
+        showLiturgicalToast({
+          title: "BANCADA DA FORJA",
+          subtitle: item.name,
+          message: "Arma equipada na sua Ficha de Personagem!",
+          type: "success"
+        });
+      } else if (type === 'ritual') {
+        const char = this.getCharacterDossier();
+        char.customRituals = char.customRituals || [];
+        char.customRituals.push(item);
+        this.saveCharacterDossier(char);
+        soundFX.playDiceRoll();
+        showLiturgicalToast({
+          title: "ATELIÊ DA FORJA",
+          subtitle: item.name,
+          message: "Ritual gravado na sua Ficha de Personagem!",
+          type: "success"
+        });
+      } else if (type === 'origin') {
+        const char = this.getCharacterDossier();
+        char.customOrigin = item;
+        char.originId = item.id;
+        char.origin = item.id;
+        char.trainedSkills = char.trainedSkills || [];
+        (item.skills || []).forEach(s => {
+          if (!char.trainedSkills.includes(s)) char.trainedSkills.push(s);
+        });
+        this.saveCharacterDossier(char);
+        soundFX.playDiceRoll();
+        showLiturgicalToast({
+          title: "ARQUIVO DE IDENTIDADE",
+          subtitle: item.name,
+          message: "Origem atribuída com sucesso à sua Ficha!",
+          type: "success"
+        });
+      }
     });
   }
 

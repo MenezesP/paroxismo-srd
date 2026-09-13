@@ -90,6 +90,92 @@ export class GrimoireViewer {
     if (modalEl) modalEl.remove();
   }
 
+  getCharacterDossier() {
+    const storageKey = window.PAROXISMO_USER_ID 
+      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
+      : "paroxismo_character_data_v1";
+    try {
+      const saved = localStorage.getItem(storageKey) || localStorage.getItem('paroxismo_character_data_v1') || localStorage.getItem('paroxismo_character_dossier_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        parsed.customRituals = Array.isArray(parsed.customRituals) ? parsed.customRituals : [];
+        return parsed;
+      }
+    } catch (e) {}
+    return {
+      name: "Agente Não Identificado",
+      customRituals: []
+    };
+  }
+
+  saveCharacterDossier(char) {
+    const storageKey = window.PAROXISMO_USER_ID 
+      ? `paroxismo_character_${window.PAROXISMO_USER_ID}` 
+      : "paroxismo_character_data_v1";
+    const json = JSON.stringify(char);
+    localStorage.setItem(storageKey, json);
+    localStorage.setItem('paroxismo_character_data_v1', json);
+    localStorage.setItem('paroxismo_character_dossier_v1', json);
+    
+    // Atualiza a instância ativa da Ficha de Personagem para sincronia instantânea
+    if (window.ParoxismoApp && window.ParoxismoApp.components && window.ParoxismoApp.components.characterSheet) {
+      const sheet = window.ParoxismoApp.components.characterSheet;
+      sheet.character = sheet.loadCharacter();
+      sheet.render();
+    }
+  }
+
+  isRitualBound(ritualId, ritualName) {
+    const char = this.getCharacterDossier();
+    return (char.customRituals || []).some(r => r.id === ritualId || r.name === ritualName);
+  }
+
+  toggleBindRitual(ritual) {
+    const char = this.getCharacterDossier();
+    char.customRituals = char.customRituals || [];
+    const existingIdx = char.customRituals.findIndex(r => r.id === ritual.id || r.name === ritual.name);
+
+    if (existingIdx >= 0) {
+      char.customRituals.splice(existingIdx, 1);
+      this.saveCharacterDossier(char);
+      soundFX.playRuneClick();
+      showLiturgicalToast({
+        title: "RITUAL DESVINCULADO",
+        subtitle: ritual.name,
+        message: "Removido da sua Ficha de Personagem.",
+        type: "info"
+      });
+      return false;
+    } else {
+      const ritualObj = {
+        id: ritual.id || ('rit-' + Date.now()),
+        name: ritual.name,
+        circle: ritual.circle,
+        peCost: ritual.peCost,
+        emotion: ritual.emotion,
+        emotionName: ritual.emotionName,
+        execution: ritual.execution,
+        range: ritual.range,
+        duration: ritual.duration,
+        save: ritual.save,
+        amplification: ritual.amplification,
+        effect: ritual.effect,
+        dmgType: ritual.dmgType || "Avesso",
+        dmgDice: ritual.dmgDice || null
+      };
+      char.customRituals.push(ritualObj);
+      this.saveCharacterDossier(char);
+      soundFX.playDiceRoll();
+      showLiturgicalToast({
+        title: "RITUAL GRAVADO NA FICHA",
+        subtitle: ritual.name,
+        message: `Vinculado com sucesso! (${ritual.circle}º Círculo • ${ritual.peCost} PE).`,
+        type: "success"
+      });
+      return true;
+    }
+  }
+
   getFilteredRituals() {
     let filtered = RITUALS_DATA.filter(ritual => {
       if (this.selectedEmotion !== "all" && ritual.emotion !== this.selectedEmotion) return false;
@@ -328,6 +414,9 @@ export class GrimoireViewer {
   renderCardsView(rituals) {
     const visibleRituals = rituals.slice(0, this.visibleCount);
     const hasMore = rituals.length > this.visibleCount;
+    const char = this.getCharacterDossier();
+    const boundSet = new Set((char.customRituals || []).map(x => x.id));
+    const boundNameSet = new Set((char.customRituals || []).map(x => x.name));
 
     return `
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5 xl:gap-6 items-start">
@@ -335,6 +424,7 @@ export class GrimoireViewer {
           const isRare = r.circle === 3;
           const isForbidden = r.circle === 4;
           const archNote = ARCHIVIST_NOTES[index % ARCHIVIST_NOTES.length];
+          const isBound = boundSet.has(r.id) || boundNameSet.has(r.name);
 
           let cardClass = "ritual-grimoire-card cursor-pointer group ritual-item";
           let spanClass = "";
@@ -422,14 +512,19 @@ export class GrimoireViewer {
                   <span class="text-[#cbd0dc] font-sans">${r.amplification}</span>
                 </div>
 
-                <!-- Rodapé da Carta: Assinatura do Manuscrito + Lupa de Inspeção -->
-                <div class="flex items-center justify-between pt-1 border-t border-[#131722] text-[10px]">
-                  <span class="signature-italic truncate max-w-[220px] sm:max-w-xs">
+                <!-- Rodapé da Carta: Assinatura do Manuscrito + Lupa de Inspeção + Vincular à Ficha -->
+                <div class="flex items-center justify-between pt-2 border-t border-[#131722] text-[10px] gap-2">
+                  <span class="signature-italic truncate max-w-[130px] sm:max-w-xs text-[#64748b]">
                     ${archNote}
                   </span>
-                  <span class="font-mono text-[#e21b23] font-bold group-hover:underline flex-shrink-0">
-                    [ EXAMINAR CARTA ]
-                  </span>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <button class="quick-bind-ritual-btn px-2.5 py-0.5 ${isBound ? 'bg-[#06b6d4]/20 border-[#06b6d4] text-[#06b6d4]' : 'bg-[#e21b23]/15 border-[#e21b23]/50 text-[#ff4d58] hover:bg-[#e21b23] hover:text-black'} border font-mono text-[9px] font-bold transition-all cursor-pointer rounded-xs" data-id="${r.id}" title="${isBound ? 'Desvincular da Ficha' : 'Vincular à Ficha'}">
+                      ${isBound ? '✓ NA FICHA' : '+ NA FICHA'}
+                    </button>
+                    <span class="font-mono text-[#e21b23] font-bold group-hover:underline flex-shrink-0 cursor-pointer">
+                      [ EXAMINAR ]
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -451,18 +546,22 @@ export class GrimoireViewer {
   renderListView(rituals) {
     const visibleRituals = rituals.slice(0, this.visibleCount);
     const hasMore = rituals.length > this.visibleCount;
+    const char = this.getCharacterDossier();
+    const boundSet = new Set((char.customRituals || []).map(x => x.id));
+    const boundNameSet = new Set((char.customRituals || []).map(x => x.name));
 
     return `
       <div class="space-y-2">
         <div class="flex items-center justify-between text-[10px] font-mono uppercase text-[#8e95a5] px-3 py-1 border-b border-[#1f2536]">
           <span>TOMO // EMOÇÃO</span>
-          <span>CÍRCULO / CUSTO / EXECUÇÃO</span>
+          <span>CÍRCULO / CUSTO / EXECUÇÃO / FICHA</span>
         </div>
 
         <div class="space-y-2">
           ${visibleRituals.map(r => {
             const isRare = r.circle === 3;
             const isForbidden = r.circle === 4;
+            const isBound = boundSet.has(r.id) || boundNameSet.has(r.name);
 
             return `
               <div class="arcane-list-row p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer ritual-item group" data-id="${r.id}">
@@ -485,16 +584,19 @@ export class GrimoireViewer {
                   </div>
                 </div>
 
-                <div class="flex items-center gap-3 font-mono text-xs flex-shrink-0 self-end md:self-center">
+                <div class="flex items-center gap-2.5 font-mono text-xs flex-shrink-0 self-end md:self-center">
                   <span class="${isForbidden ? 'text-[#ff333d] font-black' : isRare ? 'text-[#e21b23] font-bold' : 'text-white'}">
                     ${r.circle}º Círculo
                   </span>
                   <span class="text-[#8e95a5] border border-[#212636] px-1.5 py-0.5 bg-[#040508]">
                     ${r.peCost} PE
                   </span>
-                  <span class="text-[#cbd0dc] text-[11px]">
+                  <span class="text-[#cbd0dc] text-[11px] hidden sm:inline">
                     ${r.execution}
                   </span>
+                  <button class="quick-bind-ritual-btn px-2 py-1 ${isBound ? 'bg-[#06b6d4]/20 border-[#06b6d4] text-[#06b6d4]' : 'bg-[#e21b23]/15 border-[#e21b23]/50 text-[#ff4d58] hover:bg-[#e21b23] hover:text-black'} border text-[10px] font-bold transition-all cursor-pointer rounded-xs" data-id="${r.id}" title="${isBound ? 'Desvincular da Ficha' : 'Vincular à Ficha'}">
+                    ${isBound ? '✓ NA FICHA' : '+ NA FICHA'}
+                  </button>
                   <button class="px-2.5 py-1 bg-[#090b10] border border-[#1f2537] text-[#e21b23] group-hover:border-[#e21b23] text-[10px] font-bold">
                     [ EXAMINAR ]
                   </button>
@@ -644,6 +746,20 @@ export class GrimoireViewer {
     if (!this.hasCardListener) {
       this.hasCardListener = true;
       this.container.addEventListener('click', (e) => {
+        const bindBtn = e.target.closest('.quick-bind-ritual-btn');
+        if (bindBtn) {
+          e.stopPropagation();
+          const rId = bindBtn.getAttribute('data-id');
+          const ritual = RITUALS_DATA.find(x => x.id === rId);
+          if (ritual) {
+            const isNowBound = this.toggleBindRitual(ritual);
+            bindBtn.textContent = isNowBound ? '✓ NA FICHA' : '+ NA FICHA';
+            bindBtn.className = `quick-bind-ritual-btn px-2.5 py-0.5 ${isNowBound ? 'bg-[#06b6d4]/20 border-[#06b6d4] text-[#06b6d4]' : 'bg-[#e21b23]/15 border-[#e21b23]/50 text-[#ff4d58] hover:bg-[#e21b23] hover:text-black'} border font-mono text-[9px] font-bold transition-all cursor-pointer rounded-xs`;
+            bindBtn.title = isNowBound ? 'Desvincular da Ficha' : 'Vincular à Ficha';
+          }
+          return;
+        }
+
         const item = e.target.closest('.ritual-item');
         if (item) {
           const ritualId = item.getAttribute('data-id');
@@ -658,6 +774,7 @@ export class GrimoireViewer {
     const r = this.activeRitualModal;
     const isRare = r.circle === 3;
     const isForbidden = r.circle === 4;
+    const isBound = this.isRitualBound(r.id, r.name);
 
     const existing = document.getElementById('ritual-detail-modal');
     if (existing) existing.remove();
@@ -754,13 +871,18 @@ export class GrimoireViewer {
           </div>
 
           <!-- Rodapé do Modal -->
-          <div class="border-t border-[#1f2537] pt-4 mt-4 flex items-center justify-between">
+          <div class="border-t border-[#1f2537] pt-4 mt-4 flex flex-wrap items-center justify-between gap-3">
             <span class="text-[10px] font-liturgical italic text-[#8e95a5]">
               "O ritual molda o Avesso através da intenção manifesta."
             </span>
-            <button id="copy-ritual-btn" class="px-4 py-2 bg-[#e21b23] text-black font-mono font-bold text-xs hover:bg-white transition-colors">
-              [ COPIAR FÓRMULA ]
-            </button>
+            <div class="flex items-center gap-2.5">
+              <button id="modal-bind-ritual-btn" class="px-4 py-2 ${isBound ? 'bg-[#06b6d4] text-black hover:bg-white' : 'bg-[#e21b23] text-black hover:bg-white'} font-mono font-black text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer">
+                <span>${isBound ? '✓ VINCULADO À FICHA' : '+ VINCULAR À FICHA'}</span>
+              </button>
+              <button id="copy-ritual-btn" class="px-3.5 py-2 bg-[#090d15] border border-[#273248] text-white hover:text-[#e21b23] hover:border-[#e21b23] font-mono font-bold text-xs transition-colors cursor-pointer">
+                [ COPIAR ]
+              </button>
+            </div>
           </div>
 
         </div>
@@ -772,6 +894,20 @@ export class GrimoireViewer {
     document.getElementById('close-modal-btn')?.addEventListener('click', () => this.closeRitualModal());
     document.getElementById('ritual-detail-modal')?.addEventListener('click', (e) => {
       if (e.target.id === 'ritual-detail-modal') this.closeRitualModal();
+    });
+
+    document.getElementById('modal-bind-ritual-btn')?.addEventListener('click', () => {
+      const nowBound = this.toggleBindRitual(r);
+      const btn = document.getElementById('modal-bind-ritual-btn');
+      if (btn) {
+        btn.className = `px-4 py-2 ${nowBound ? 'bg-[#06b6d4] text-black hover:bg-white' : 'bg-[#e21b23] text-black hover:bg-white'} font-mono font-black text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer`;
+        btn.innerHTML = `<span>${nowBound ? '✓ VINCULADO À FICHA' : '+ VINCULAR À FICHA'}</span>`;
+      }
+      this.container.querySelectorAll(`.quick-bind-ritual-btn[data-id="${r.id}"]`).forEach(b => {
+        b.textContent = nowBound ? '✓ NA FICHA' : '+ NA FICHA';
+        b.className = `quick-bind-ritual-btn px-2.5 py-0.5 ${nowBound ? 'bg-[#06b6d4]/20 border-[#06b6d4] text-[#06b6d4]' : 'bg-[#e21b23]/15 border-[#e21b23]/50 text-[#ff4d58] hover:bg-[#e21b23] hover:text-black'} border font-mono text-[9px] font-bold transition-all cursor-pointer rounded-xs`;
+        b.title = nowBound ? 'Desvincular da Ficha' : 'Vincular à Ficha';
+      });
     });
 
     document.getElementById('copy-ritual-btn')?.addEventListener('click', () => {
