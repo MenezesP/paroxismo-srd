@@ -3228,4 +3228,178 @@ body.vtt-view-active #vtt-dice-dock {
   right: auto !important;
 }
 
+/* ============================================================ */
+/* STREAM OVERLAY / PORTRAIT DOS SOBREVIVENTES NA MESA          */
+/* Inspirado no estilo Clarisse / Ordem Paranormal Stream Card  */
+/* ============================================================ */
+@font-face {
+  font-family: "OptimaDemiBold";
+  src: local("Optima DemiBold"), local("OptimaDemiBold"), local("Optima Demi");
+  font-style: normal;
+  font-weight: 600;
+}
+
+.stream-portrait-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.stream-portrait-card {
+  position: relative;
+  min-width: 320px;
+  max-width: 400px;
+  flex: 1 1 320px;
+  height: 150px;
+  background: rgba(4, 6, 11, 0.85);
+  border: 1px solid rgba(226, 27, 35, 0.35);
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.9), inset 0 0 15px rgba(226, 27, 35, 0.1);
+  border-radius: 3px;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  padding: 6px 14px 6px 8px;
+  box-sizing: border-box;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.stream-portrait-card:hover {
+  border-color: rgba(226, 27, 35, 0.85);
+  box-shadow: 0 0 30px rgba(226, 27, 35, 0.45), inset 0 0 20px rgba(226, 27, 35, 0.25);
+  transform: translateY(-2px);
+}
+
+.stream-portrait-card:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+.stream-portrait-img-box {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stream-portrait-img {
+  width: 130px;
+  height: 130px;
+  object-fit: cover;
+  object-position: top center;
+  filter: contrast(1.1) drop-shadow(0 0 10px rgba(0, 0, 0, 0.8));
+  mask-image: radial-gradient(circle at 50% 50%, black 68%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 68%, transparent 100%);
+  border-radius: 6px;
+}
+
+.stream-portrait-slash {
+  position: absolute;
+  bottom: -6px;
+  left: -6px;
+  width: 160px;
+  height: 74px;
+  pointer-events: none;
+  z-index: 5;
+  filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.85));
+}
+
+.stream-portrait-pe {
+  position: absolute;
+  bottom: 1px;
+  left: 8px;
+  z-index: 10;
+  font-family: "OptimaDemiBold", "Optima", "Cinzel", serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  transform: rotate(-4deg);
+  transform-origin: left center;
+  text-shadow:
+    0 0 12px rgba(77, 166, 255, 1),
+    0 0 28px rgba(77, 166, 255, 1),
+    0 0 55px rgba(77, 166, 255, 0.85);
+  user-select: none;
+}
+
+.stream-portrait-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 12px;
+  min-width: 0;
+  flex: 1;
+  transform: rotate(-4deg);
+  transform-origin: left center;
+  user-select: none;
+}
+
+.stream-portrait-name {
+  font-family: "OptimaDemiBold", "Optima", "Cinzel", serif;
+  font-size: 19px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  text-shadow:
+    0 0 15px rgba(255, 0, 0, 1),
+    0 0 35px rgba(255, 0, 0, 1),
+    0 0 70px rgba(255, 0, 0, 0.95),
+    0 0 120px rgba(255, 0, 0, 0.75);
+}
+
+.stream-portrait-pv {
+  font-family: "Optima", "Cinzel", serif;
+  font-size: 25px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.15;
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 0 15px rgba(255, 0, 0, 1),
+    0 0 35px rgba(255, 0, 0, 1),
+    0 0 70px rgba(255, 0, 0, 0.85);
+}
+
+.stream-portrait-tag {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ff333d;
+  margin-top: 4px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.stream-portrait-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+
 

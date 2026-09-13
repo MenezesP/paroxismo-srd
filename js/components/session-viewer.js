@@ -17,10 +17,23 @@
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
-import { SessionSync } from '../utils/session-sync.js?v=sess_v3';
+import { SessionSync } from '../utils/session-sync.js?v=sess_v4';
 import { CharacterSheet } from './character-sheet.js?v=release_v11';
 import { RULES_DATA } from '../data/rules.js';
 import { SKILLS_DATA } from '../data/skills-origins.js';
+
+const CLASS_IMAGES = {
+  combate: 'assets/images/Combate.png',
+  investigador: 'assets/images/Investigador.jpeg',
+  ocultista: 'assets/images/Ocultista.png',
+  tatico: 'assets/images/Tatico.png',
+  infiltrador: 'assets/images/Infiltrador.png',
+  metamaturgo: 'assets/images/Metamaturgo.png',
+  duelista: 'assets/images/Duelista.png',
+  flagelador: 'assets/images/Flagelador.png',
+  receptaculo: 'assets/images/Receptaculo.png',
+  liturgista: 'assets/images/Liturgista.png'
+};
 
 export class SessionViewer {
   constructor(containerId, app) {
@@ -1197,28 +1210,118 @@ export class SessionViewer {
     `;
   }
 
-  getParticipantsSummaryContentHTML(participants) {
+  renderStreamPortraitCardHTML(p) {
+    const isMe = p.user?.id === this.user?.id;
+    const char = isMe ? this.character : (p.character || {});
+    const name = (isMe ? this.character?.name : (char.name || p.user?.name)) || 'Agente';
+    const classId = char.classId || 'combate';
+    const avatarUrl = char.customAvatar || CLASS_IMAGES[classId] || 'assets/images/Combate.png';
+    const fallbackImg = CLASS_IMAGES[classId] || 'assets/images/Combate.png';
+
+    const curPv = (typeof char.currentPv === 'number' && !isNaN(char.currentPv)) ? char.currentPv : 20;
+    const maxPv = (typeof char.maxPv === 'number' && !isNaN(char.maxPv)) ? char.maxPv : (char.pv || 20);
+    const curPe = (typeof char.currentPe === 'number' && !isNaN(char.currentPe)) ? char.currentPe : 3;
+    const level = char.level || 1;
+
+    let tag = '';
+    if (p.isGm) {
+      tag = '✠ CONDUTOR // GM';
+    } else if (char.concept) {
+      tag = `${char.concept.toUpperCase()} // NV ${level}`;
+    } else {
+      tag = `AGENTE // NV ${level}`;
+    }
+
     return `
+      <div class="stream-portrait-card" data-user-id="${p.user?.id || ''}" title="Clique para abrir o Dossiê do Agente">
+        <div class="stream-portrait-badge">
+          <span class="w-1.5 h-1.5 rounded-full ${p.status === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+          <span class="text-[8px] font-mono ${p.status === 'online' ? 'text-emerald-400' : 'text-amber-400'}">${p.status === 'online' ? 'ONLINE' : 'AUSENTE'}</span>
+        </div>
+
+        <div class="stream-portrait-img-box">
+          <img class="stream-portrait-img" src="${avatarUrl}" alt="${this.escapeHTML(name)}" onerror="this.onerror=null; this.src='${fallbackImg}';" />
+          
+          <svg class="stream-portrait-slash" viewBox="0 0 240 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g filter="url(#streamSlashNeonGlow)">
+              <path d="M12 55 L42 22" stroke="#ff222d" stroke-width="4.5" stroke-linecap="round"/>
+              <path d="M14 53 L40 24" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M22 26 L45 62" stroke="#e21b23" stroke-width="4" stroke-linecap="round"/>
+              <path d="M24 28 L43 60" stroke="#ff9ea4" stroke-width="1.5" stroke-linecap="round"/>
+            </g>
+            <path d="M25 54 C45 74, 85 88, 140 85 C185 82, 215 55, 232 28 C220 54, 180 77, 135 77 C88 77, 48 64, 25 54 Z" fill="url(#streamSlashGradDark)"/>
+            <path d="M28 53 C50 72, 90 85, 142 82 C184 80, 212 56, 228 32 C216 52, 178 74, 136 74 C90 74, 52 62, 28 53 Z" fill="url(#streamSlashGradBright)"/>
+            <path d="M30 52 C55 70, 95 82, 145 80 C182 78, 208 58, 226 34" stroke="url(#streamSlashSpineHighlight)" stroke-width="3" stroke-linecap="round" filter="url(#streamSlashNeonGlow)"/>
+            <path d="M15 65 C40 82, 85 94, 130 92 C165 90, 195 76, 215 58" stroke="#ff1a24" stroke-width="2" stroke-linecap="round" stroke-dasharray="8 5 15 4" opacity="0.85"/>
+            <path d="M35 76 L30 88 M55 82 L50 94 M85 87 L82 98 M115 87 L116 99 M150 83 L155 95 M180 74 L190 86 M205 60 L218 70" stroke="#e21b23" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M100 78 C94 65, 82 60, 75 64" stroke="#ff333d" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M165 74 C175 62, 185 58, 192 63" stroke="#ff333d" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+
+          <span class="stream-portrait-pe">${curPe}</span>
+        </div>
+
+        <div class="stream-portrait-info">
+          <div class="stream-portrait-name">${this.escapeHTML(name)}</div>
+          <div class="stream-portrait-pv">${curPv}/${maxPv}</div>
+          <div class="stream-portrait-tag">${this.escapeHTML(tag)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  getParticipantsSummaryContentHTML(participants) {
+    const effectiveParticipants = (participants && participants.length > 0) ? participants : [{
+      user: this.user,
+      character: this.character,
+      isGm: this.isGm,
+      status: 'online'
+    }];
+
+    return `
+      <!-- Defs SVG compartilhados para efeitos de neon e gradientes das garras -->
+      <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="streamSlashGradDark" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stop-color="#4a0002" />
+            <stop offset="20%" stop-color="#8a0308" />
+            <stop offset="50%" stop-color="#c91018" />
+            <stop offset="80%" stop-color="#99060b" />
+            <stop offset="100%" stop-color="#3d0001" />
+          </linearGradient>
+          <linearGradient id="streamSlashGradBright" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stop-color="#ff1a24" />
+            <stop offset="30%" stop-color="#ff333d" />
+            <stop offset="60%" stop-color="#e21b23" />
+            <stop offset="100%" stop-color="#ff222d" />
+          </linearGradient>
+          <linearGradient id="streamSlashSpineHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+            <stop offset="40%" stop-color="#ff9ea4" />
+            <stop offset="75%" stop-color="#ff222d" />
+            <stop offset="100%" stop-color="#8a0308" stop-opacity="0.5" />
+          </linearGradient>
+          <filter id="streamSlashNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
+
       <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
-        <span class="text-[10px] text-white/70 font-bold uppercase tracking-wider">
-          SOBREVIVENTES NA MESA (${participants.length})
+        <span class="text-[10px] text-white/70 font-bold uppercase tracking-wider flex items-center gap-1.5">
+          <span>👥</span> SOBREVIVENTES NA MESA (${effectiveParticipants.length})
         </span>
         <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           SINCRONIZADO
         </span>
       </div>
-      <div class="flex flex-wrap items-center gap-2 pt-1">
-        ${participants.map(p => `
-          <div class="flex items-center gap-1.5 px-2.5 py-1 bg-black/60 border border-white/10">
-            <span class="w-1.5 h-1.5 rounded-full ${p.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
-            <div class="flex items-baseline gap-1.5">
-              <span class="font-serif font-bold text-white text-xs">${this.escapeHTML(p.character?.name || p.user?.name || 'Agente')}</span>
-              ${p.isGm ? '<span class="text-[8px] text-[#ff333d] font-mono font-bold">GM</span>' : ''}
-            </div>
-            <span class="text-[9px] text-[#8e95a5] font-mono">PV ${p.character?.currentPv || 20}/20</span>
-          </div>
-        `).join('')}
+      <div class="stream-portrait-gallery">
+        ${effectiveParticipants.map(p => this.renderStreamPortraitCardHTML(p)).join('')}
       </div>
     `;
   }
@@ -1653,6 +1756,9 @@ export class SessionViewer {
       }
       this.renderCenterStageOnly();
     });
+
+    // 24. Interações dos Portraits da Mesa
+    this.setupParticipantsSummaryEvents(root.querySelector('#vtt-center-participants-summary'));
   }
 
   // ============================================================
@@ -2096,9 +2202,14 @@ export class SessionViewer {
     modal.classList.add('hidden');
     soundFX.playRuneClick();
 
-    // Recarrega dossiê e atualiza a aba Meu Agente
+    // Recarrega dossiê e atualiza a aba Meu Agente e o Palco Central
     this.character = getCharacterDossier();
+    if (this.sync) {
+      this.sync.character = this.character;
+      this.sync.broadcastPresence('online');
+    }
     this.renderLeftSidebarOnly();
+    this.renderParticipantsSummaryOnly();
   }
 
   // ============================================================
@@ -2224,6 +2335,10 @@ export class SessionViewer {
 
     this.character.currentPe = Math.max(0, curPe - cost);
     saveCharacterDossier(this.character);
+    if (this.sync) {
+      this.sync.character = this.character;
+      this.sync.broadcastPresence('online');
+    }
     if (typeof soundFX.playSealBreak === 'function') soundFX.playSealBreak();
     else soundFX.playRuneClick();
 
@@ -2232,6 +2347,7 @@ export class SessionViewer {
     }
 
     this.renderLeftSidebarOnly();
+    this.renderParticipantsSummaryOnly();
   }
 
   executeGmSecretRoll() {
@@ -2725,6 +2841,8 @@ export class SessionViewer {
         if (handout) this.openHandoutModal(handout);
       });
     });
+
+    this.setupParticipantsSummaryEvents(stage.querySelector('#vtt-center-participants-summary') || stage);
   }
 
   renderCenterCombatSummary() {
@@ -2762,7 +2880,18 @@ export class SessionViewer {
     if (box) {
       const participants = this.sync ? Array.from(this.sync.participants.values()) : [];
       box.innerHTML = this.getParticipantsSummaryContentHTML(participants);
+      this.setupParticipantsSummaryEvents(box);
     }
+  }
+
+  setupParticipantsSummaryEvents(container) {
+    if (!container) return;
+    container.querySelectorAll('.stream-portrait-card').forEach(card => {
+      card.addEventListener('click', () => {
+        soundFX.playRuneClick();
+        this.openCharacterSheetModal();
+      });
+    });
   }
 
   renderLeftSidebarOnly() {
@@ -2804,8 +2933,13 @@ export class SessionViewer {
           this.character.currentPe = Math.max(0, Math.min(maxVal, cur + delta));
         }
         saveCharacterDossier(this.character);
+        if (this.sync) {
+          this.sync.character = this.character;
+          this.sync.broadcastPresence('online');
+        }
         soundFX.playRuneClick();
         this.renderLeftSidebarOnly();
+        this.renderParticipantsSummaryOnly();
       });
     });
 

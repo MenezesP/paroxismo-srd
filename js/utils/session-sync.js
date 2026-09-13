@@ -258,6 +258,11 @@ export class SessionSync {
 
   // 1. Presença & Heartbeat
   broadcastPresence(status = 'online') {
+    const curPv = (this.character && typeof this.character.currentPv === 'number' && !isNaN(this.character.currentPv)) ? this.character.currentPv : 20;
+    const maxPv = (this.character && typeof this.character.maxPv === 'number' && !isNaN(this.character.maxPv)) ? this.character.maxPv : (this.character?.pv || 20);
+    const curPe = (this.character && typeof this.character.currentPe === 'number' && !isNaN(this.character.currentPe)) ? this.character.currentPe : 3;
+    const maxPe = (this.character && typeof this.character.maxPe === 'number' && !isNaN(this.character.maxPe)) ? this.character.maxPe : (this.character?.pe || 3);
+
     this.broadcast('presence', {
       user: {
         id: this.user.id,
@@ -269,8 +274,13 @@ export class SessionSync {
         name: this.character?.name || 'Agente',
         concept: this.character?.concept || 'Sobrevivente',
         classId: this.character?.classId || 'combate',
-        currentPv: this.character?.currentPv || 20,
-        currentPe: this.character?.currentPe || 3
+        level: this.character?.level || 1,
+        currentPv: curPv,
+        maxPv: maxPv,
+        currentPe: curPe,
+        maxPe: maxPe,
+        customAvatar: this.character?.customAvatar || null,
+        attributes: this.character?.attributes || null
       },
       status
     });
