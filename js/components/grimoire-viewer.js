@@ -8,7 +8,7 @@ import { RITUALS_DATA } from '../data/rituals.js';
 import { EMOTIONS_DATA } from '../data/emotions.js';
 import { soundFX } from '../utils/sound-fx.js';
 import { showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
-import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
 
 const ICONS8 = {
   clock: 'https://img.icons8.com/?id=H0JqzxqGxPQm&format=png&size=48&color=8E95A5',

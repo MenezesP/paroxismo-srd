@@ -13,7 +13,7 @@ import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
 import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
-import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
 
 export class ForgeViewer {
   constructor(containerId) {

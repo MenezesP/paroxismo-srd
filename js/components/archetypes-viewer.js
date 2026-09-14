@@ -10,7 +10,7 @@ import { EMOTIONS_DATA } from '../data/emotions.js';
 import { soundFX } from '../utils/sound-fx.js';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { normalizeText } from '../utils/search-engine.js';
-import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
 
 export class ArchetypesViewer {
   constructor(containerId) {

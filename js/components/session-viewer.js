@@ -16,7 +16,7 @@
 
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
-import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v1';
+import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
 import { SessionSync } from '../utils/session-sync.js?v=sess_v4';
 import { CharacterSheet } from './character-sheet.js?v=release_v11';
 import { RULES_DATA } from '../data/rules.js';

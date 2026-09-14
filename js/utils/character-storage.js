@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PAROXISMO — UNIFIED CHARACTER STORAGE ENGINE
  * Gerencia persistência atômica, migração e sincronização resiliente
  * da Ficha de Personagem entre sessões normais e Discord Activity.
@@ -38,6 +38,9 @@ export function getDefaultCharacter() {
   };
 }
 
+// Cache em memória para ambientes onde localStorage é restrito ou bloqueado (ex: iframes do Discord)
+const __memoryStorage = {};
+
 export function getCharacterDossier() {
   const defaultChar = getDefaultCharacter();
 
@@ -47,7 +50,7 @@ export function getCharacterDossier() {
     'paroxismo_character_data_v1'
   ];
   if (typeof window !== 'undefined' && window.PAROXISMO_USER_ID) {
-    candidateKeys.unshift(paroxismo_character_);
+    candidateKeys.unshift('paroxismo_character_' + window.PAROXISMO_USER_ID);
   }
 
   let candidates = [];
@@ -62,6 +65,16 @@ export function getCharacterDossier() {
         }
       }
     } catch (e) {}
+
+    // Checa memória se não achou no localStorage
+    if (__memoryStorage[key]) {
+      try {
+        const parsed = JSON.parse(__memoryStorage[key]);
+        if (parsed && typeof parsed === 'object') {
+          candidates.push({ key, data: parsed, time: parsed.lastUpdated || 0 });
+        }
+      } catch (e) {}
+    }
   }
 
   // Fallback para sessionStorage
@@ -115,18 +128,25 @@ export function saveCharacterDossier(char) {
   char.lastUpdated = Date.now();
   const json = JSON.stringify(char);
 
+  // Salva no cache em memória para garantia em iframes
+  __memoryStorage['paroxismo_character_dossier_v1'] = json;
+  __memoryStorage['paroxismo_character_data_v1'] = json;
+  if (typeof window !== 'undefined' && window.PAROXISMO_USER_ID) {
+    __memoryStorage['paroxismo_character_' + window.PAROXISMO_USER_ID] = json;
+  }
+
   // Salva em todas as chaves unificadas para máxima resiliência
   try {
     localStorage.setItem('paroxismo_character_dossier_v1', json);
     localStorage.setItem('paroxismo_character_data_v1', json);
 
     if (typeof window !== 'undefined' && window.PAROXISMO_USER_ID) {
-      localStorage.setItem(paroxismo_character_, json);
+      localStorage.setItem('paroxismo_character_' + window.PAROXISMO_USER_ID, json);
     }
 
     sessionStorage.setItem('paroxismo_character_backup_v1', json);
   } catch (e) {
-    console.warn('[CharacterStorage] Erro ao gravar no storage:', e);
+    console.warn('[CharacterStorage] Erro ao gravar no storage (usando fallback em memória):', e);
   }
 
   // Dispara evento global de sincronização para outros componentes no DOM

@@ -16,7 +16,7 @@ import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
 
 import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
-import { getCharacterDossier, saveCharacterDossier, getDefaultCharacter } from '../utils/character-storage.js?v=char_v1';
+import { getCharacterDossier, saveCharacterDossier, getDefaultCharacter } from '../utils/character-storage.js?v=char_v2';
 
 const CLASS_IMAGES = {
   combate: 'assets/images/Combate.png',
