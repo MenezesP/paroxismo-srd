@@ -85,6 +85,10 @@ export class SessionViewer {
 
   destroy() {
     document.body.classList.remove('vtt-view-active');
+    const sheetModal = document.getElementById('vtt-sheet-modal');
+    if (sheetModal && sheetModal.parentElement === document.body) {
+      sheetModal.remove();
+    }
     if (this.sync) {
       try { this.sync.disconnect(); } catch (e) {}
       this.sync = null;
@@ -361,9 +365,9 @@ export class SessionViewer {
         <div id="vtt-generic-modal-container" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
         
         <!-- MODAL DA FICHA DE PERSONAGEM COMPLETA (POPUP FOUNDRY STYLE) -->
-        <div id="vtt-sheet-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md">
-          <div class="relative w-full max-w-5xl max-h-[92vh] bg-[#07090e] border-2 border-[#06b6d4] flex flex-col shadow-[0_0_50px_rgba(6,182,212,0.3)] overflow-hidden">
-            <div class="p-3 bg-black/90 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+        <div id="vtt-sheet-modal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md">
+          <div class="relative w-full max-w-5xl h-[90vh] max-h-[90vh] bg-[#07090e] border-2 border-[#06b6d4] flex flex-col shadow-[0_0_50px_rgba(6,182,212,0.4)] overflow-hidden">
+            <div class="p-3 bg-black/95 border-b border-white/10 flex items-center justify-between flex-shrink-0">
               <div class="flex items-center gap-2">
                 <span class="text-[#06b6d4]">👤</span>
                 <span class="font-serif font-black text-sm uppercase text-white tracking-wider">DOSSIÊ DO AGENTE // FICHA COMPLETA</span>
@@ -372,7 +376,7 @@ export class SessionViewer {
                 ✕ FECHAR FICHA
               </button>
             </div>
-            <div id="vtt-sheet-modal-content" class="flex-1 overflow-y-auto p-2 sm:p-4"></div>
+            <div id="vtt-sheet-modal-content" class="flex-1 min-h-0 overflow-y-auto p-2 sm:p-4"></div>
           </div>
         </div>
 
@@ -652,15 +656,11 @@ export class SessionViewer {
   }
 
   // ------------------------------------------------------------
-  // TAB 2: MEU AGENTE (ARMAS, RITUAIS, PROTEÇÃO, ATRIBUTOS E POPUP)
+  // CÁLCULO UNIFICADO DE ESTATÍSTICAS DERIVADAS (PV, PE, DEFESA)
   // ------------------------------------------------------------
-  getAgentDossierHTML() {
-    const c = this.character;
-    const attrs = c.attributes || { agi: 2, for: 2, int: 1, pre: 1, vig: 2 };
-    const weapons = Array.isArray(c.customWeapons) ? c.customWeapons : [];
-    const rituals = Array.isArray(c.customRituals) ? c.customRituals : [];
-    
-    // Cálculo Dinâmico de PV Máximo e PE Máximo conforme Classe e Nível
+  getCharacterStats(c) {
+    if (!c) return { maxPv: 20, currentPv: 20, maxPe: 3, currentPe: 3, passiveDef: 10 };
+    const attrs = c.attributes || {};
     let baseInitialPv = 20;
     let baseGainPv = 4;
     if (c.classId === 'combate') { baseInitialPv = 20; baseGainPv = 4; }
@@ -668,9 +668,11 @@ export class SessionViewer {
     else if (['investigador', 'tatico', 'infiltrador', 'duelista', 'receptaculo'].includes(c.classId)) { baseInitialPv = 16; baseGainPv = 3; }
     else if (c.classId === 'metamaturgo') { baseInitialPv = 14; baseGainPv = 3; }
     else if (['ocultista', 'liturgista'].includes(c.classId)) { baseInitialPv = 12; baseGainPv = 2; }
-    const vig = attrs.vig ?? 2;
+    
+    const vig = (typeof attrs.vig === 'number' && !isNaN(attrs.vig)) ? attrs.vig : 2;
     const level = c.level || 1;
-    const maxPv = Math.max(1, (baseInitialPv + vig) + (level - 1) * (baseGainPv + vig));
+    const computedMaxPv = Math.max(1, (baseInitialPv + vig) + (level - 1) * (baseGainPv + vig));
+    const maxPv = (typeof c.maxPv === 'number' && !isNaN(c.maxPv)) ? c.maxPv : computedMaxPv;
 
     let baseInitialPe = 2;
     let baseGainPe = 1;
@@ -679,18 +681,38 @@ export class SessionViewer {
     else if (['investigador', 'tatico', 'metamaturgo', 'flagelador'].includes(c.classId)) { baseInitialPe = 4; baseGainPe = 2; }
     else if (['duelista', 'receptaculo'].includes(c.classId)) { baseInitialPe = 5; baseGainPe = 2; }
     else if (['ocultista', 'liturgista'].includes(c.classId)) { baseInitialPe = 6; baseGainPe = 3; }
-    const pre = attrs.pre ?? 1;
-    const maxPe = Math.max(1, (baseInitialPe + pre) + (level - 1) * (baseGainPe + pre));
+    
+    const pre = (typeof attrs.pre === 'number' && !isNaN(attrs.pre)) ? attrs.pre : 1;
+    const computedMaxPe = Math.max(1, (baseInitialPe + pre) + (level - 1) * (baseGainPe + pre));
+    const maxPe = (typeof c.maxPe === 'number' && !isNaN(c.maxPe)) ? c.maxPe : computedMaxPe;
 
     const currentPv = Math.max(0, Math.min(maxPv, (typeof c.currentPv === 'number' && !isNaN(c.currentPv)) ? c.currentPv : maxPv));
     const currentPe = Math.max(0, Math.min(maxPe, (typeof c.currentPe === 'number' && !isNaN(c.currentPe)) ? c.currentPe : maxPe));
 
-    // Cálculo de Defesa Passiva real
     let armorBonus = 0;
     if (c.protectionId === 'colete' || c.protectionId === 'colete_leve') armorBonus = 2;
     else if (c.protectionId === 'pesada' || c.protectionId === 'colete_pesado') armorBonus = 5;
     else armorBonus = 1; // jaqueta padrão
     const passiveDef = 10 + (attrs.agi || 0) + armorBonus + (c.classId === 'combate' ? (attrs.vig || 0) : 0);
+
+    return { maxPv, currentPv, maxPe, currentPe, passiveDef };
+  }
+
+  // ------------------------------------------------------------
+  // TAB 2: MEU AGENTE (ARMAS, RITUAIS, PROTEÇÃO, ATRIBUTOS E POPUP)
+  // ------------------------------------------------------------
+  getAgentDossierHTML() {
+    const c = this.character;
+    const attrs = c.attributes || { agi: 2, for: 2, int: 1, pre: 1, vig: 2 };
+    const weapons = Array.isArray(c.customWeapons) ? c.customWeapons : [];
+    const rituals = Array.isArray(c.customRituals) ? c.customRituals : [];
+    
+    const stats = this.getCharacterStats(c);
+    const maxPv = stats.maxPv;
+    const maxPe = stats.maxPe;
+    const currentPv = stats.currentPv;
+    const currentPe = stats.currentPe;
+    const passiveDef = stats.passiveDef;
 
     return `
       <div class="flex flex-col gap-3 min-h-0">
@@ -1218,9 +1240,10 @@ export class SessionViewer {
     const avatarUrl = char.customAvatar || CLASS_IMAGES[classId] || 'assets/images/Combate.png';
     const fallbackImg = CLASS_IMAGES[classId] || 'assets/images/Combate.png';
 
-    const curPv = (typeof char.currentPv === 'number' && !isNaN(char.currentPv)) ? char.currentPv : 20;
-    const maxPv = (typeof char.maxPv === 'number' && !isNaN(char.maxPv)) ? char.maxPv : (char.pv || 20);
-    const curPe = (typeof char.currentPe === 'number' && !isNaN(char.currentPe)) ? char.currentPe : 3;
+    const stats = this.getCharacterStats(char);
+    const curPv = stats.currentPv;
+    const maxPv = stats.maxPv;
+    const curPe = stats.currentPe;
     const level = char.level || 1;
 
     let tag = '';
@@ -2177,9 +2200,19 @@ export class SessionViewer {
   // POPUP MODAL DA FICHA DE PERSONAGEM (ESTILO FOUNDRY VTT)
   // ============================================================
   openCharacterSheetModal() {
-    const modal = this.container.querySelector('#vtt-sheet-modal');
-    const content = this.container.querySelector('#vtt-sheet-modal-content');
-    if (!modal || !content) return;
+    let modal = document.getElementById('vtt-sheet-modal');
+    if (!modal && this.container) {
+      modal = this.container.querySelector('#vtt-sheet-modal');
+    }
+    if (!modal) return;
+
+    // Garante que o modal esteja anexado diretamente ao document.body para não ser afetado por transforms do SPA
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+
+    const content = modal.querySelector('#vtt-sheet-modal-content');
+    if (!content) return;
 
     soundFX.playRuneClick();
     modal.classList.remove('hidden');
@@ -2188,10 +2221,19 @@ export class SessionViewer {
 
     // Monta a Ficha Completa
     new CharacterSheet('foundry-sheet-mount');
+
+    // Listener garantido no botão de fechar mesmo após teleporte para body
+    const closeBtn = modal.querySelector('#vtt-btn-close-sheet-modal');
+    if (closeBtn && !closeBtn._modalCloseAttached) {
+      closeBtn._modalCloseAttached = true;
+      closeBtn.addEventListener('click', () => {
+        this.closeCharacterSheetModal();
+      });
+    }
   }
 
   closeCharacterSheetModal() {
-    const modal = this.container.querySelector('#vtt-sheet-modal');
+    const modal = document.getElementById('vtt-sheet-modal');
     if (!modal) return;
 
     modal.classList.add('hidden');

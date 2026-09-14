@@ -225,6 +225,10 @@ export class CharacterSheet {
       (f.e1 === char.secondaryEmo && f.e2 === char.primaryEmo)
     );
 
+    // Persiste maxPv e maxPe calculados no objeto do personagem
+    char.maxPv = maxPv;
+    char.maxPe = maxPe;
+
     return {
       maxPv,
       maxPe,
