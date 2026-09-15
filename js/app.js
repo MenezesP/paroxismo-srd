@@ -24,9 +24,9 @@ import { CharacterSheet } from './components/character-sheet.js?v=release_v13';
 import { DiceRoller } from './components/dice-roller.js?v=mobile_v5';
 import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v12';
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v12';
-import { DiscordActivity } from './utils/discord-activity.js?v=release_v11';
-import { ActivitySync } from './utils/activity-sync.js?v=discord_v1';
-import { SessionViewer } from './components/session-viewer.js?v=sess_v13';
+import { DiscordActivity } from './utils/discord-activity.js?v=release_v12';
+import { ActivitySync } from './utils/activity-sync.js?v=discord_v2';
+import { SessionViewer } from './components/session-viewer.js?v=sess_v14';
 
 class App {
   constructor() {

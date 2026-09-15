@@ -4,7 +4,7 @@
  * como uma Activity, mantendo 100% de compatibilidade fora do Discord.
  */
 
-import { DiscordSDK, patchUrlMappings } from '../vendor/discord-sdk.mjs';
+import { DiscordSDK } from '../vendor/discord-sdk.mjs';
 
 export class DiscordActivity {
   constructor() {
@@ -42,13 +42,7 @@ export class DiscordActivity {
       this.sdk = new DiscordSDK(clientId);
       console.log('[Discord Activity] Inicializando DiscordSDK...');
       await this.sdk.ready();
-
-      // Redireciona chamadas /api pelo proxy interno do Discord
-      try {
-        patchUrlMappings([{ prefix: '/api', target: window.location.host }]);
-      } catch (e) {
-        console.warn('[Discord Activity] patchUrlMappings aviso:', e);
-      }
+      window.PAROXISMO_DISCORD_SDK = this.sdk;
 
       // Autenticação OAuth2 transparente com Discord
       try {
@@ -105,15 +99,51 @@ export class DiscordActivity {
       // Expõe dados de sessão globalmente
       window.PAROXISMO_USER_ID = this.user.id;
       window.PAROXISMO_USER_NAME = this.user.global_name || this.user.username;
+      window.PAROXISMO_USER_AVATAR = this.getAvatarUrl();
       window.PAROXISMO_IS_DISCORD = true;
       window.PAROXISMO_INSTANCE_ID = this.instanceId;
+      window.PAROXISMO_DISCORD_SDK = this.sdk;
+
+      // Consulta e escuta participantes conectados na chamada de voz do Discord
+      this.participants = [];
+      try {
+        const pData = await this.sdk.commands.getInstanceConnectedParticipants();
+        if (pData && Array.isArray(pData.participants)) {
+          this.participants = pData.participants;
+          window.PAROXISMO_DISCORD_PARTICIPANTS = this.participants;
+          console.log('[Discord Activity] Participantes conectados na instância:', this.participants.length);
+        }
+      } catch (pErr) {
+        console.warn('[Discord Activity] getInstanceConnectedParticipants aviso:', pErr);
+      }
+
+      try {
+        await this.sdk.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', (update) => {
+          console.log('[Discord Activity] Evento de participantes recebido:', update);
+          if (update && Array.isArray(update.participants)) {
+            this.participants = update.participants;
+            window.PAROXISMO_DISCORD_PARTICIPANTS = this.participants;
+            window.dispatchEvent(new CustomEvent('paroxismo:discord_participants', {
+              detail: { participants: this.participants }
+            }));
+          }
+        });
+      } catch (subErr) {
+        console.warn('[Discord Activity] Subscrição a participantes aviso:', subErr);
+      }
 
       this.injectDiscordBadge();
 
       // Dispara evento informando que a identidade foi resolvida
-      window.dispatchEvent(new CustomEvent('paroxismo:discord_ready', { detail: { user: this.user, instanceId: this.instanceId } }));
+      window.dispatchEvent(new CustomEvent('paroxismo:discord_ready', {
+        detail: {
+          user: this.user,
+          instanceId: this.instanceId,
+          participants: this.participants
+        }
+      }));
 
-      return { isDiscord: true, user: this.user, instanceId: this.instanceId };
+      return { isDiscord: true, user: this.user, instanceId: this.instanceId, participants: this.participants };
     } catch (err) {
       console.error('[Discord Activity] Erro na inicialização do SDK:', err);
       return { isDiscord: true, error: err.message };

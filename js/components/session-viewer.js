@@ -17,7 +17,7 @@
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
-import { SessionSync } from '../utils/session-sync.js?v=sess_v4';
+import { SessionSync } from '../utils/session-sync.js?v=sess_v5';
 import { CharacterSheet } from './character-sheet.js?v=release_v11';
 import { RULES_DATA } from '../data/rules.js';
 import { SKILLS_DATA } from '../data/skills-origins.js';
@@ -46,8 +46,12 @@ export class SessionViewer {
     this.user = this.resolveCurrentUser();
     this.character = getCharacterDossier();
     
-    // Estado da Sessão (Persistido no localStorage / Sincronizado)
-    this.sessionId = localStorage.getItem('paroxismo_active_session_id') || 'mesa_principal';
+    // Estado da Sessão (Sincronizado via Discord Activity ou localStorage)
+    if (window.PAROXISMO_IS_DISCORD && window.PAROXISMO_INSTANCE_ID) {
+      this.sessionId = 'discord_' + window.PAROXISMO_INSTANCE_ID;
+    } else {
+      this.sessionId = localStorage.getItem('paroxismo_active_session_id') || 'mesa_principal';
+    }
     this.sessionData = {
       campaignName: localStorage.getItem('paroxismo_campaign_name') || 'Campanha Paroxismo',
       sessionNumber: parseInt(localStorage.getItem('paroxismo_session_num') || '1', 10),
@@ -84,6 +88,10 @@ export class SessionViewer {
   }
 
   destroy() {
+    if (this._discordParticipantsHandler) {
+      window.removeEventListener('paroxismo:discord_participants', this._discordParticipantsHandler);
+      this._discordParticipantsHandler = null;
+    }
     document.body.classList.remove('vtt-view-active');
     const sheetModal = document.getElementById('vtt-sheet-modal');
     if (sheetModal && sheetModal.parentElement === document.body) {
@@ -96,9 +104,12 @@ export class SessionViewer {
   }
 
   resolveCurrentUser() {
-    let stableId = localStorage.getItem('paroxismo_discord_user_id') || 
+    let stableId = window.PAROXISMO_USER_ID ||
+                   localStorage.getItem('paroxismo_discord_user_id') || 
                    localStorage.getItem('paroxismo_stable_user_id');
-    let stableName = localStorage.getItem('paroxismo_discord_user_name');
+    let stableName = window.PAROXISMO_USER_NAME ||
+                     localStorage.getItem('paroxismo_discord_user_name');
+    let avatar = window.PAROXISMO_USER_AVATAR || null;
 
     if (!stableId) {
       stableId = 'agente_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1000);
@@ -108,7 +119,7 @@ export class SessionViewer {
     return {
       id: stableId,
       name: stableName || (this.isGm ? 'Condutor' : 'Agente ' + stableId.slice(-4)),
-      avatar: null,
+      avatar: avatar,
       role: this.isGm ? 'GM' : 'PLAYER'
     };
   }
@@ -169,6 +180,21 @@ export class SessionViewer {
   initSync() {
     this.sync = new SessionSync(this.sessionId, this.user, this.character, this.isGm);
     this.sync.connect();
+
+    // Sincroniza participantes da chamada de voz do Discord nativamente
+    if (window.PAROXISMO_DISCORD_PARTICIPANTS && this.sync) {
+      this.sync.updateDiscordParticipants(window.PAROXISMO_DISCORD_PARTICIPANTS);
+    }
+    this._discordParticipantsHandler = (e) => {
+      if (e.detail && e.detail.participants && this.sync) {
+        this.sync.updateDiscordParticipants(e.detail.participants);
+        this.renderParticipantsSummaryOnly();
+        if (this.activeLeftTab === 'jogadores') {
+          this.renderLeftSidebarOnly();
+        }
+      }
+    };
+    window.addEventListener('paroxismo:discord_participants', this._discordParticipantsHandler);
 
     // Escuta novas mensagens de chat (com proteção contra duplicatas)
     this.sync.on('chat', (chatMsg) => {
@@ -365,8 +391,8 @@ export class SessionViewer {
         <div id="vtt-generic-modal-container" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"></div>
         
         <!-- MODAL DA FICHA DE PERSONAGEM COMPLETA (POPUP FOUNDRY STYLE) -->
-        <div id="vtt-sheet-modal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md">
-          <div class="relative w-full max-w-5xl h-[90vh] max-h-[90vh] bg-[#07090e] border-2 border-[#06b6d4] flex flex-col shadow-[0_0_50px_rgba(6,182,212,0.4)] overflow-hidden">
+        <div id="vtt-sheet-modal" class="hidden">
+          <div class="sheet-modal-dialog">
             <div class="p-3 bg-black/95 border-b border-white/10 flex items-center justify-between flex-shrink-0">
               <div class="flex items-center gap-2">
                 <span class="text-[#06b6d4]">👤</span>
@@ -1237,7 +1263,7 @@ export class SessionViewer {
     const char = isMe ? this.character : (p.character || {});
     const name = (isMe ? this.character?.name : (char.name || p.user?.name)) || 'Agente';
     const classId = char.classId || 'combate';
-    const avatarUrl = char.customAvatar || CLASS_IMAGES[classId] || 'assets/images/Combate.png';
+    const avatarUrl = char.customAvatar || p.user?.avatar || CLASS_IMAGES[classId] || 'assets/images/Combate.png';
     const fallbackImg = CLASS_IMAGES[classId] || 'assets/images/Combate.png';
 
     const stats = this.getCharacterStats(char);
@@ -2216,17 +2242,29 @@ export class SessionViewer {
 
     soundFX.playRuneClick();
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 
     content.innerHTML = '<div id="foundry-sheet-mount"></div>';
 
     // Monta a Ficha Completa
     new CharacterSheet('foundry-sheet-mount');
 
+    // Fechar ao clicar no backdrop (fora do diálogo da ficha)
+    if (!modal._modalBackdropAttached) {
+      modal._modalBackdropAttached = true;
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          this.closeCharacterSheetModal();
+        }
+      });
+    }
+
     // Listener garantido no botão de fechar mesmo após teleporte para body
     const closeBtn = modal.querySelector('#vtt-btn-close-sheet-modal');
     if (closeBtn && !closeBtn._modalCloseAttached) {
       closeBtn._modalCloseAttached = true;
-      closeBtn.addEventListener('click', () => {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.closeCharacterSheetModal();
       });
     }
@@ -2237,12 +2275,14 @@ export class SessionViewer {
     if (!modal) return;
 
     modal.classList.add('hidden');
+    modal.style.display = 'none';
     soundFX.playRuneClick();
 
     // Recarrega dossiê e atualiza a aba Meu Agente e o Palco Central
     this.character = getCharacterDossier();
     if (this.sync) {
       this.sync.character = this.character;
+      this.sync.registerLocalParticipant();
       this.sync.broadcastPresence('online');
     }
     this.renderLeftSidebarOnly();

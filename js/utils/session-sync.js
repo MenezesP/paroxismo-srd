@@ -1,15 +1,17 @@
 /**
  * PAROXISMO — Sincronização em Tempo Real da Mesa Virtual (SessionSync)
- * Comunicação bidirecional via WebSocket (ntfy.sh / Discord Activity)
+ * Comunicação bidirecional via WebSocket e MQTT (HiveMQ / EMQX / Discord Activity)
  * Gerencia chat persistente, rolagens com visibilidade segura, iniciativa,
  * handouts e modo cinemático.
  * 
  * - Singleton de listener global para evitar disparos múltiplos
  * - Janela de deduplicação e debounce de rolagens
  * - Suporte à fase de iniciativa com rolagens individuais dos players e mestre
+ * - Suporte nativo aos participantes conectados na chamada de voz do Discord
  */
 
 import { soundFX } from './sound-fx.js?v=sound_v2';
+import { RealtimeTransport } from './realtime-transport.js?v=rt_v1';
 
 export class SessionSync {
   static activeInstance = null;
@@ -45,10 +47,11 @@ export class SessionSync {
     this.character = character || { name: 'Agente do Avesso' };
     this.isGm = Boolean(isGm);
     this.topic = 'parox_mesa_' + this.sanitizeTopic(this.sessionId);
+    this.mqttTopic = 'paroxismo/vtt/' + this.sanitizeTopic(this.sessionId);
     
-    this.ws = null;
+    this.transport = RealtimeTransport.getShared();
+    this.unsubscribeTransport = null;
     this.isConnected = false;
-    this.reconnectAttempts = 0;
     this.heartbeatTimer = null;
     
     // Callbacks registrados
@@ -65,11 +68,14 @@ export class SessionSync {
       system: []
     };
     
-    // Registro de participantes ativos { [userId]: { user, character, isGm, lastSeen, status } }
+    // Registro de participantes ativos { [userId]: { user, character, isGm, lastSeen, status, fromDiscordCall } }
     this.participants = new Map();
     this._seenIds = new Set();
     this._lastGlobalRollSig = null;
     this._lastGlobalRollTime = 0;
+
+    // Registra imediatamente o participante local
+    this.registerLocalParticipant();
   }
 
   sanitizeTopic(id) {
@@ -82,6 +88,92 @@ export class SessionSync {
     return Math.abs(hash).toString(36);
   }
 
+  registerLocalParticipant() {
+    const curPv = (this.character && typeof this.character.currentPv === 'number' && !isNaN(this.character.currentPv)) ? this.character.currentPv : 20;
+    const maxPv = (this.character && typeof this.character.maxPv === 'number' && !isNaN(this.character.maxPv)) ? this.character.maxPv : (this.character?.pv || 20);
+    const curPe = (this.character && typeof this.character.currentPe === 'number' && !isNaN(this.character.currentPe)) ? this.character.currentPe : 3;
+    const maxPe = (this.character && typeof this.character.maxPe === 'number' && !isNaN(this.character.maxPe)) ? this.character.maxPe : (this.character?.pe || 3);
+
+    this.participants.set(this.user.id, {
+      user: {
+        id: this.user.id,
+        name: this.user.global_name || this.user.username || this.user.name || (this.isGm ? 'Condutor' : 'Agente'),
+        avatar: this.user.avatar || null,
+        role: this.isGm ? 'GM' : 'PLAYER'
+      },
+      character: {
+        name: this.character?.name || (this.isGm ? 'Condutor' : 'Agente'),
+        concept: this.character?.concept || 'Sobrevivente',
+        classId: this.character?.classId || 'combate',
+        level: this.character?.level || 1,
+        currentPv: curPv,
+        maxPv: maxPv,
+        currentPe: curPe,
+        maxPe: maxPe,
+        customAvatar: this.character?.customAvatar || null,
+        attributes: this.character?.attributes || null
+      },
+      isGm: this.isGm,
+      lastSeen: Date.now(),
+      status: 'online'
+    });
+  }
+
+  /**
+   * Sincroniza participantes obtidos nativamente da chamada de voz do Discord
+   */
+  updateDiscordParticipants(discordList) {
+    if (!Array.isArray(discordList)) return;
+    let changed = false;
+
+    for (const dUser of discordList) {
+      if (!dUser || !dUser.id) continue;
+      if (dUser.id === this.user.id) continue; // Usuário local já gerenciado
+
+      const existing = this.participants.get(dUser.id);
+      const discordAvatar = dUser.avatar ? `https://cdn.discordapp.com/avatars/${dUser.id}/${dUser.avatar}.png?size=128` : null;
+      const displayName = dUser.global_name || dUser.username || 'Agente Discord';
+
+      if (!existing) {
+        this.participants.set(dUser.id, {
+          user: {
+            id: dUser.id,
+            name: displayName,
+            avatar: discordAvatar,
+            role: 'PLAYER'
+          },
+          character: {
+            name: displayName,
+            concept: 'Agente da Ordem',
+            classId: 'combate',
+            level: 1,
+            currentPv: 20,
+            maxPv: 20,
+            currentPe: 3,
+            maxPe: 3,
+            customAvatar: discordAvatar
+          },
+          isGm: false,
+          lastSeen: Date.now(),
+          status: 'online',
+          fromDiscordCall: true
+        });
+        changed = true;
+      } else if (existing.fromDiscordCall) {
+        if (discordAvatar && !existing.user.avatar) {
+          existing.user.avatar = discordAvatar;
+          existing.character.customAvatar = discordAvatar;
+          changed = true;
+        }
+        existing.lastSeen = Date.now();
+      }
+    }
+
+    if (changed) {
+      this.triggerListeners('presence', Array.from(this.participants.values()));
+    }
+  }
+
   /**
    * Recebe disparos de rolagem do dossiê com debounce rígido para eliminar duplicações
    */
@@ -90,7 +182,7 @@ export class SessionSync {
     const sig = `${detail.label || ''}_${detail.result}_${detail.details || ''}`;
     const now = Date.now();
     if (this._lastGlobalRollSig === sig && (now - this._lastGlobalRollTime) < 1500) {
-      return; // Ignora duplicação imediata
+      return;
     }
     this._lastGlobalRollSig = sig;
     this._lastGlobalRollTime = now;
@@ -107,49 +199,21 @@ export class SessionSync {
   }
 
   connect() {
-    const wsUrl = `wss://ntfy.sh/${this.topic}/ws`;
+    console.log(`[SessionSync] Conectando à Mesa Virtual: ${this.mqttTopic}`);
 
-    try {
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-        console.log(`[SessionSync] Conectado à Mesa Virtual: ${this.topic}`);
-        
-        // Emite presença inicial e inicia heartbeat a cada 15 segundos
-        this.broadcastPresence('online');
-        this.startHeartbeat();
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.event === 'message' && data.message) {
-            const payload = JSON.parse(data.message);
-            this.handleIncoming(payload);
-          }
-        } catch (e) {
-          // Ignora mensagens malformadas
-        }
-      };
-
-      this.ws.onclose = () => {
-        this.isConnected = false;
-        this.stopHeartbeat();
-        if (this.reconnectAttempts < 6) {
-          this.reconnectAttempts++;
-          const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 15000);
-          setTimeout(() => this.connect(), delay);
-        }
-      };
-
-      this.ws.onerror = (err) => {
-        console.warn('[SessionSync] WebSocket erro:', err);
-      };
-    } catch (e) {
-      console.warn('[SessionSync] Falha ao instanciar WebSocket:', e);
+    // Registra listener no canal MQTT compartilhado
+    if (this.unsubscribeTransport) {
+      this.unsubscribeTransport();
     }
+
+    this.unsubscribeTransport = this.transport.subscribe(this.mqttTopic, (message) => {
+      this.handleIncoming(message);
+    });
+
+    this.isConnected = true;
+    this.registerLocalParticipant();
+    this.broadcastPresence('online');
+    this.startHeartbeat();
   }
 
   disconnect() {
@@ -157,12 +221,12 @@ export class SessionSync {
     if (SessionSync.activeInstance === this) {
       SessionSync.activeInstance = null;
     }
-    if (this.ws) {
+    if (this.unsubscribeTransport) {
       try {
         this.broadcastPresence('offline');
-        this.ws.close();
+        this.unsubscribeTransport();
       } catch (e) {}
-      this.ws = null;
+      this.unsubscribeTransport = null;
     }
     this.isConnected = false;
   }
@@ -188,7 +252,15 @@ export class SessionSync {
     const now = Date.now();
     let changed = false;
     for (const [id, p] of this.participants.entries()) {
-      if (id !== this.user.id && (now - p.lastSeen) > 45000) {
+      // Nunca remove o usuário local
+      if (id === this.user.id) continue;
+
+      // Se for participante da chamada do Discord, mantém ativo se a chamada estiver ativa
+      if (p.fromDiscordCall && window.PAROXISMO_DISCORD_PARTICIPANTS?.some(dp => dp.id === id)) {
+        continue;
+      }
+
+      if ((now - p.lastSeen) > 45000) {
         this.participants.delete(id);
         changed = true;
       }
@@ -221,7 +293,7 @@ export class SessionSync {
     }
   }
 
-  // Envio genérico para a sala
+  // Envio para a sala via WebSocket MQTT
   async broadcast(type, payload) {
     const message = {
       type,
@@ -229,6 +301,7 @@ export class SessionSync {
       senderId: this.user.id,
       senderName: this.user.global_name || this.user.username || this.user.name || (this.isGm ? 'Condutor' : 'Agente'),
       senderAvatar: this.user.avatar || null,
+      character: this.character,
       characterName: this.character?.name || 'Agente',
       isGm: this.isGm,
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -239,14 +312,11 @@ export class SessionSync {
     // Disparo local imediato (Zero-latency / Offline-first)
     this.handleIncoming(message);
 
+    // Transmissão via RealtimeTransport
     try {
-      await fetch(`https://ntfy.sh/${this.topic}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message)
-      });
+      this.transport.publish(this.mqttTopic, message);
     } catch (e) {
-      console.warn('[SessionSync] Erro no broadcast HTTP:', e);
+      console.warn('[SessionSync] Erro no broadcast MQTT:', e);
     }
 
     return message;
@@ -393,12 +463,12 @@ export class SessionSync {
   handleIncoming(msg) {
     if (!msg || !msg.type) return;
 
-    // Deduplicação de mensagens para evitar duplicatas vindas do WebSocket echo
+    // Deduplicação de mensagens
     const msgKey = msg.payload?.id || (msg.type + '_' + msg.senderId + '_' + (msg.createdAt || msg.timestamp));
     if (msgKey) {
       if (this._seenIds.has(msgKey)) return;
       this._seenIds.add(msgKey);
-      if (this._seenIds.size > 200) {
+      if (this._seenIds.size > 300) {
         const first = this._seenIds.values().next().value;
         this._seenIds.delete(first);
       }
@@ -415,7 +485,8 @@ export class SessionSync {
           character,
           isGm: Boolean(user.isGm || msg.isGm),
           lastSeen: Date.now(),
-          status: status || 'online'
+          status: status || 'online',
+          fromDiscordCall: false
         });
         this.triggerListeners('presence', Array.from(this.participants.values()));
       }
