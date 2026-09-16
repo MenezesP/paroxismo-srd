@@ -226,18 +226,31 @@ h1, h2, h3, h4, h5, .font-serif {
 
 /* ============================================================ */
 /* ============================================================ */
-/* BACKDROP ESCURO PARA MENU DE RODAS NO CELULAR                */
+/* ============================================================ */
+/* BACKDROP ESCURO E TRANSLÚCIDO PARA MENU DE RODAS (MODAL)     */
 /* ============================================================ */
 .rotary-backdrop {
-  display: none !important;
-  pointer-events: none !important;
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  z-index: 9990 !important;
   opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.28s ease !important;
+  display: block !important;
 }
 
 .rotary-backdrop.active {
-  display: none !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 /* ============================================================ */
@@ -245,7 +258,7 @@ h1, h2, h3, h4, h5, .font-serif {
 /* ============================================================ */
 .rotary-wheel-system {
   position: fixed;
-  left: 20px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   width: 250px;
@@ -257,8 +270,8 @@ h1, h2, h3, h4, h5, .font-serif {
   touch-action: pan-y;
   cursor: grab;
   border-right: none;
-  z-index: 50;
-  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  z-index: 9995;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
   will-change: transform;
 }
 
@@ -269,13 +282,15 @@ h1, h2, h3, h4, h5, .font-serif {
 /* Botão Único de Controle do Menu (Superior Esquerdo - Visível Globalmente) */
 #rotary-drawer-toggle-wrapper {
   display: flex !important;
+  z-index: 9998 !important;
 }
 
+#rotary-drawer-toggle-btn,
 .rotary-drawer-toggle-btn {
   display: flex !important;
 }
 
-/* Estado Recolhido: Totalmente Oculto sem Ocupar Espaço */
+/* Estado Recolhido: Totalmente Oculto sem Ocupar Espaço nem Bloquear Cliques */
 .rotary-wheel-system.collapsed {
   transform: translateY(-50%) translateX(-250%) !important;
   pointer-events: none !important;
@@ -289,7 +304,7 @@ h1, h2, h3, h4, h5, .font-serif {
   display: none !important;
 }
 
-/* Quando visível: aparece normal e limpo, sem blur nem fundo cobrindo o site */
+/* Quando visível: aparece normal e limpo, sem blur na própria roda */
 .rotary-wheel-system:not(.collapsed) {
   transform: translateY(-50%) translateX(0) !important;
   pointer-events: auto !important;
@@ -299,16 +314,44 @@ h1, h2, h3, h4, h5, .font-serif {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
-/* O espaçador vazio não deve roubar espaço útil do conteúdo */
-#rotary-desktop-spacer {
+/* Spacer inteligente no Desktop: só reserva espaço quando a roda está visível e a tela é larga */
+#rotary-desktop-spacer,
+#rotary-desktop-spacer.hidden {
   display: none !important;
   width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
+}
+
+@media (min-width: 1280px) {
+  body:not(.discord-activity-mode):not(.rotary-is-collapsed) #rotary-desktop-spacer:not(.hidden) {
+    display: block !important;
+    width: 240px !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+/* Ajuste de escala da roda para telas com altura baixa ou Discord Activity */
+@media (max-height: 650px) {
+  .rotary-wheel-system {
+    transform-origin: left center !important;
+  }
+  .rotary-wheel-system:not(.collapsed) {
+    transform: translateY(-50%) translateX(0) scale(0.76) !important;
+  }
+  .rotary-wheel-system.collapsed {
+    transform: translateY(-50%) translateX(-250%) scale(0.76) !important;
+  }
+}
+
+body.discord-activity-mode .rotary-wheel-system {
+  transform-origin: left center !important;
+}
+body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
+  transform: translateY(-50%) translateX(0) scale(0.78) !important;
+}
+body.discord-activity-mode .rotary-wheel-system.collapsed {
+  transform: translateY(-50%) translateX(-250%) scale(0.78) !important;
 }
 
 .rotary-drawer-badge {
@@ -370,45 +413,6 @@ h1, h2, h3, h4, h5, .font-serif {
     max-width: 100% !important;
   }
 
-  .rotary-wheel-system {
-    left: 0;
-    z-index: 60;
-  }
-
-  .rotary-wheel-system.collapsed {
-    transform: translateY(-50%) translateX(-120%) !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-  }
-
-  /* Quando recolhido no celular, NENHUM elemento da roda recebe evento de ponteiro */
-  .rotary-wheel-system.collapsed * {
-    pointer-events: none !important;
-  }
-
-  .rotary-wheel-system.collapsed .rotary-nodes-track,
-  .rotary-wheel-system.collapsed .rotary-dial-canvas,
-  .rotary-wheel-system.collapsed .rotary-ctrl-btn {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    display: none !important;
-  }
-
-  .rotary-wheel-system:not(.collapsed) {
-    transform: translateY(-50%) translateX(10px) !important;
-    pointer-events: auto !important;
-    visibility: visible !important;
-    z-index: 60 !important;
-  }
-
-  .rotary-wheel-system:not(.collapsed) .rotary-nodes-track,
-  .rotary-wheel-system:not(.collapsed) .rotary-dial-canvas,
-  .rotary-wheel-system:not(.collapsed) .rotary-ctrl-btn {
-    opacity: 1;
-    display: block !important;
-    pointer-events: auto;
-    transition: opacity 0.3s ease;
-  }
 
   /* Botão Flutuante de Menu no Celular (Topo Esquerdo) */
   .rotary-drawer-toggle-btn {
@@ -3002,110 +3006,17 @@ h1, h2, h3, h4, h5, .font-serif {
 /* ADAPTAÇÕES ULTRA-COMPACTAS PARA DISCORD ACTIVITY & MOBILE     */
 /* ============================================================ */
 
-/* 1. O botão de menu gaveta deve ser visível no Discord e telas < 1360px */
+/* 1. O botão de menu gaveta é garantido visível no Discord e telas compactas */
 body.discord-activity-mode #rotary-drawer-toggle-wrapper {
   display: flex !important;
 }
-@media (max-width: 1359px) {
-  #rotary-drawer-toggle-wrapper {
-    display: flex !important;
-  }
-}
 
-/* 2. O espaçador vazio de 240px deve desaparecer no Discord e telas < 1360px */
+/* 2. O espaçador vazio nunca existe no Discord */
 body.discord-activity-mode #rotary-desktop-spacer {
   display: none !important;
   width: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
-}
-@media (max-width: 1359px) {
-  #rotary-desktop-spacer {
-    display: none !important;
-    width: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-}
-
-/* 3. A Roda de Opções nunca pode sobrepor o conteúdo permanentemente */
-body.discord-activity-mode .rotary-wheel-system {
-  left: 8px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  z-index: 9999 !important;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
-}
-
-body.discord-activity-mode .rotary-wheel-system.collapsed {
-  transform: translateY(-50%) translateX(-180%) !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  display: none !important;
-}
-
-body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
-  transform: translateY(-50%) translateX(10px) !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  display: block !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-@media (max-width: 1359px) {
-  .rotary-wheel-system {
-    left: 8px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    z-index: 9999 !important;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease !important;
-  }
-
-  .rotary-wheel-system.collapsed {
-    transform: translateY(-50%) translateX(-180%) !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    display: none !important;
-  }
-
-  .rotary-wheel-system:not(.collapsed) {
-    transform: translateY(-50%) translateX(10px) !important;
-    pointer-events: auto !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: block !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-}
-
-/* 4. Em telas com altura baixa (ex: 475px do Discord), escala a roda para caber sem cortar */
-body.discord-activity-mode .rotary-wheel-system:not(.collapsed) {
-  transform: translateY(-50%) translateX(10px) scale(0.76) !important;
-  transform-origin: left center !important;
-}
-body.discord-activity-mode .rotary-wheel-system.collapsed {
-  transform: translateY(-50%) translateX(-180%) scale(0.76) !important;
-}
-
-@media (max-height: 650px) {
-  .rotary-wheel-system:not(.collapsed) {
-    transform: translateY(-50%) translateX(10px) scale(0.76) !important;
-    transform-origin: left center !important;
-  }
-  .rotary-wheel-system.collapsed {
-    transform: translateY(-50%) translateX(-180%) scale(0.76) !important;
-  }
 }
 
 /* 5. Viewport do Jogo em Modo Discord: padding superior para a barra de topo não cobrir títulos */

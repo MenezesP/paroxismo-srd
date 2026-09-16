@@ -24,8 +24,8 @@ export class RotaryWheel {
     this.drawerLabel = document.getElementById('rotary-drawer-label');
     this.drawerArrow = document.getElementById('rotary-drawer-arrow');
     
-    // Inicia visível normalmente como antes, com a opção de esconder
-    this.isCollapsed = false;
+    // Em telas compactas, mobile ou Discord Activity, inicia recolhido para liberar 100% da tela para leitura
+    this.isCollapsed = this.isCompactMode();
 
     this.baseItems = [
       { id: 'home', num: '00', label: 'CÓDICE' },
@@ -70,7 +70,7 @@ export class RotaryWheel {
   }
 
   isCompactMode() {
-    return false;
+    return window.innerWidth < 1280 || document.body.classList.contains('discord-activity-mode');
   }
 
   toggleDrawer(forceClose = null) {
@@ -87,15 +87,29 @@ export class RotaryWheel {
     if (this.isCollapsed) {
       this.container?.classList.add('collapsed');
       document.body?.classList.add('rotary-is-collapsed');
+      if (this.backdrop) {
+        this.backdrop.classList.remove('active');
+      }
       if (this.drawerLabel) this.drawerLabel.textContent = 'MENU';
       if (this.drawerArrow) this.drawerArrow.textContent = '❯';
       if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Mostrar Menu de Opções (M)';
     } else {
       this.container?.classList.remove('collapsed');
       document.body?.classList.remove('rotary-is-collapsed');
+      if (this.backdrop) {
+        if (this.isCompactMode()) {
+          this.backdrop.classList.add('active');
+        } else {
+          this.backdrop.classList.remove('active');
+        }
+      }
       if (this.drawerLabel) this.drawerLabel.textContent = 'ESCONDER';
       if (this.drawerArrow) this.drawerArrow.textContent = '❮';
       if (this.drawerToggleBtn) this.drawerToggleBtn.title = 'Esconder Menu de Opções (M)';
+    }
+
+    if (this.drawerBadge && this.items[this.activeIndex]) {
+      this.drawerBadge.textContent = this.items[this.activeIndex].num;
     }
   }
 
@@ -131,6 +145,12 @@ export class RotaryWheel {
 
       nodeEl.addEventListener('click', () => {
         this.rotateToIndex(idx);
+        // Se clicar no item que já está ativo em modo compacto, fecha a gaveta
+        if (idx === this.activeIndex && this.isCompactMode() && !this.isCollapsed) {
+          setTimeout(() => {
+            this.toggleDrawer(true);
+          }, 160);
+        }
       });
 
       this.track.appendChild(nodeEl);
@@ -145,14 +165,19 @@ export class RotaryWheel {
     });
 
     // Backdrop Escuro (Fecha o Menu ao Clicar Fora)
-    this.backdrop?.addEventListener('click', () => {
+    this.backdrop?.addEventListener('click', (e) => {
+      e.stopPropagation();
       this.toggleDrawer(true);
     });
 
-    // Tecla de Atalho 'M' para alternar o Menu de Rodas
+    // Tecla de Atalho 'M' para alternar o Menu de Rodas / Escape para fechar
     window.addEventListener('keydown', (e) => {
       const activeTag = document.activeElement?.tagName;
       if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || document.activeElement?.isContentEditable) {
+        return;
+      }
+      if (e.key === 'Escape' && !this.isCollapsed) {
+        this.toggleDrawer(true);
         return;
       }
       if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -162,9 +187,13 @@ export class RotaryWheel {
 
     // Ajuste ao redimensionar tela
     window.addEventListener('resize', () => {
-      if (this.isCompactMode() && !this.isCollapsed && !this.backdrop?.classList.contains('active')) {
-        this.isCollapsed = true;
-        this.applyDrawerState();
+      const compact = this.isCompactMode();
+      if (!compact) {
+        if (this.backdrop?.classList.contains('active')) {
+          this.backdrop.classList.remove('active');
+        }
+      } else if (!this.isCollapsed && this.backdrop) {
+        this.backdrop.classList.add('active');
       }
     });
 
@@ -276,7 +305,12 @@ export class RotaryWheel {
       }
     }
 
-    // O menu permanece aberto conforme navega, fechando apenas sob comando do usuário
+    // Em telas compactas, mobile ou Discord Activity, fecha suavemente a gaveta após a seleção para não cobrir o conteúdo
+    if (this.isCompactMode() && !this.isCollapsed) {
+      setTimeout(() => {
+        this.toggleDrawer(true);
+      }, 220);
+    }
   }
 
   setActiveTab(tabId, triggerCallback = false) {

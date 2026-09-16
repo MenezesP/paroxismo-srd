@@ -15,7 +15,7 @@ import { ADVENTURE_DATA } from './data/adventure.js';
 import { SearchEngine } from './utils/search-engine.js';
 import { soundFX } from './utils/sound-fx.js';
 import { AtmosphericCanvas } from './components/particle-canvas.js?v=release_v8';
-import { RotaryWheel } from './components/rotary-wheel.js?v=release_v8';
+import { RotaryWheel } from './components/rotary-wheel.js?v=release_v9';
 
 import { EmotionWheel } from './components/emotion-wheel.js?v=release_v8';
 import { FusionMatrix } from './components/fusion-matrix.js?v=release_v8';
@@ -130,6 +130,9 @@ class App {
 
     if (syncWheel && this.rotaryWheel) {
       this.rotaryWheel.setActiveTab(tab, false);
+      if (this.rotaryWheel.isCompactMode() && !this.rotaryWheel.isCollapsed) {
+        this.rotaryWheel.toggleDrawer(true);
+      }
     }
 
     const rotarySpacer = document.getElementById('rotary-desktop-spacer');
