@@ -1092,29 +1092,60 @@ body.discord-activity-mode .rotary-wheel-system.collapsed {
 /* Inspirado na composição da imagem de referência 1 & 2         */
 /* ============================================================ */
 
+/* ============================================================ */
+/* TIPOGRAFIA FLUIDA E LAYOUT DO HERO (PAROXISMO)              */
+/* ============================================================ */
+.hero-col-left {
+  container-type: inline-size;
+  position: relative;
+  z-index: 20;
+}
+
+.hero-paroxismo-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  line-height: 0.95;
+  color: #ffffff;
+  white-space: nowrap;
+  letter-spacing: 0.12em;
+  /* Fluid typography inteligente: se adapta perfeitamente à largura sem vazar nem ficar sob os cards */
+  font-size: clamp(2rem, 3.2vw, 3.75rem);
+  font-size: clamp(1.85rem, 9.5cqi, 3.75rem);
+  position: relative;
+  z-index: 20;
+  display: block;
+}
+
+@media (max-width: 639px) {
+  .hero-paroxismo-title {
+    font-size: clamp(1.85rem, 8.5vw, 2.75rem);
+    letter-spacing: 0.08em;
+  }
+}
+
 /* CONTAINER DE HABILIDADES ESTILO SHIZUKA */
 .shizuka-perspective-wrapper {
   width: 100%;
   position: relative;
-  z-index: 30;
+  z-index: 10;
 }
 
 .shizuka-ability-deck {
   display: flex;
   flex-direction: column;
   position: relative;
-  z-index: 30;
+  z-index: 10;
 }
 
 @media (min-width: 1024px) {
   .shizuka-perspective-wrapper {
     perspective: 1100px;
     perspective-origin: 25% 50%;
-    max-width: 480px;
+    max-width: 460px;
   }
 
   .shizuka-ability-deck {
-    transform: rotateY(-16deg) rotateX(4deg) rotateZ(-3deg);
+    transform: rotateY(-14deg) rotateX(3deg) rotateZ(-2deg);
     transform-origin: center left;
     transform-style: preserve-3d;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s ease;
@@ -1123,8 +1154,20 @@ body.discord-activity-mode .rotary-wheel-system.collapsed {
   }
 
   .shizuka-ability-deck:hover {
-    transform: rotateY(-10deg) rotateX(2deg) rotateZ(-2deg) scale(1.02);
+    transform: rotateY(-8deg) rotateX(2deg) rotateZ(-1deg) scale(1.02);
     filter: drop-shadow(20px 26px 40px rgba(0, 0, 0, 1));
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1365px) {
+  .shizuka-perspective-wrapper {
+    perspective: 900px;
+    max-width: 390px;
+  }
+
+  .shizuka-ability-deck {
+    transform: rotateY(-10deg) rotateX(2deg) rotateZ(-1deg);
+    gap: 12px;
   }
 }
 
@@ -1155,7 +1198,7 @@ body.discord-activity-mode .rotary-wheel-system.collapsed {
   );
   box-shadow: 8px 12px 24px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(255, 255, 255, 0.1);
   transform-style: preserve-3d;
-  z-index: 30;
+  z-index: 10;
 }
 
 .shizuka-strip-card:hover {
@@ -1266,8 +1309,24 @@ body.discord-activity-mode .rotary-wheel-system.collapsed {
   }
 
   .colossal-sigil-core {
-    width: 480px;
+    width: 100%;
+    max-width: 480px;
     height: 640px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1365px) {
+  .living-sigil-monolith-huge {
+    height: 480px;
+  }
+
+  .colossal-sigil-circumferences {
+    transform: translate(-50%, -50%) scale(0.65);
+  }
+
+  .colossal-sigil-core {
+    max-width: 340px;
+    height: 460px;
   }
 }
 

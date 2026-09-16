@@ -324,16 +324,16 @@ class App {
       <div class="w-full lg:min-h-[calc(100vh-60px)] flex items-start lg:items-center justify-center py-6 sm:py-16 px-2 sm:px-8 relative z-10 overflow-hidden">
         
         <!-- COMPOSIÇÃO TRIPARTITE EQUILIBRADA (CENTRALIZADA VERTICALMENTE NO VIEWPORT) -->
-        <div class="max-w-[1460px] w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div class="max-w-[1460px] w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 items-center">
           
           <!-- ============================================================ -->
           <!-- 1. COLUNA ESQUERDA: TÍTULO MONUMENTAL & SELO ESPINHOSO       -->
           <!-- ============================================================ -->
-          <div class="lg:col-span-4 space-y-6 text-left">
+          <div class="lg:col-span-5 2xl:col-span-4 space-y-6 text-left hero-col-left relative z-20">
             
             <!-- Título & Epígrafe -->
             <div class="space-y-3">
-              <h1 class="text-4xl sm:text-5xl xl:text-6xl font-serif font-black tracking-[0.14em] text-white leading-none whitespace-nowrap">
+              <h1 class="hero-paroxismo-title">
                 PAROXISMO
               </h1>
               <p class="text-xs sm:text-sm font-serif italic text-[#c8cbd2] leading-relaxed max-w-sm border-l-2 border-[#e21b23] pl-3 py-0.5">
@@ -407,7 +407,7 @@ class App {
           <!-- ============================================================ -->
           <!-- 2. COLUNA CENTRAL: DECK INCLINADO COM PROFUNDIDADE 3D REAL   -->
           <!-- ============================================================ -->
-          <div class="lg:col-span-4 flex items-center justify-center py-4 relative z-30">
+          <div class="lg:col-span-4 2xl:col-span-4 flex items-center justify-center py-4 relative z-10">
             <div class="shizuka-perspective-wrapper">
               <div class="shizuka-ability-deck">
                 
@@ -469,7 +469,7 @@ class App {
           <!-- ============================================================ -->
           <!-- 3. COLUNA DIREITA: O SÍMBOLO OFICIAL VIVO BEM MAIOR          -->
           <!-- ============================================================ -->
-          <div class="lg:col-span-4 flex flex-col items-center justify-center relative z-10">
+          <div class="lg:col-span-3 2xl:col-span-4 flex flex-col items-center justify-center relative z-10">
             <div class="living-sigil-monolith-huge">
               
               <!-- Circunferências Alquímicas Concêntricas de 960px Rigorosamente Alinhadas e Retas -->
