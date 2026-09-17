@@ -270,6 +270,11 @@ export class SessionViewer {
       this.saveMessages();
       this.renderChatFeedOnly();
       this.scrollChatToBottom();
+
+      // Alerta visual imediato na Mesa quando outro participante rola dados
+      if (rollMsg.author?.id && rollMsg.author.id !== this.user?.id) {
+        this.showRemoteRollAlert(rollMsg);
+      }
     });
 
     // Escuta atualizações completas de iniciativa
@@ -2521,6 +2526,70 @@ export class SessionViewer {
         this.sync.sendDiceRoll(rollPayload);
       }
     });
+  }
+
+  showRemoteRollAlert(roll) {
+    const alertId = 'vtt-remote-roll-' + roll.id;
+    if (document.getElementById(alertId)) return;
+
+    // 1. Efeito visual pulsante no retrato do participante que rolou o dado
+    if (roll.author?.id) {
+      const card = this.container.querySelector(`.stream-portrait-card[data-user-id="${roll.author.id}"]`);
+      if (card) {
+        card.classList.add('stream-portrait-active-roll');
+        setTimeout(() => card.classList.remove('stream-portrait-active-roll'), 4500);
+      }
+    }
+
+    // 2. Banner holográfico proeminente no centro superior da Mesa
+    const toast = document.createElement('div');
+    toast.id = alertId;
+    toast.style.cssText = 'position: fixed; top: 68px; left: 50%; transform: translateX(-50%); z-index: 99990; min-width: 320px; max-width: 520px; font-family: monospace; backdrop-filter: blur(12px); pointer-events: auto;';
+    toast.className = 'p-3 bg-[#07090e]/95 border-2 ' +
+      (roll.isCrit ? 'border-[#06b6d4] shadow-[0_0_35px_rgba(6,182,212,0.65)]' :
+       roll.isFumble ? 'border-[#ff333d] shadow-[0_0_35px_rgba(255,51,61,0.65)]' :
+       'border-[#e21b23] shadow-[0_0_30px_rgba(226,27,35,0.45)]') +
+      ' animate-fadeIn flex flex-col gap-1.5 text-white select-none';
+
+    const authorName = roll.author?.characterName || roll.author?.name || 'Agente';
+    const avatarUrl = roll.author?.avatar
+      ? (roll.author.avatar.startsWith('http') ? roll.author.avatar : 'https://cdn.discordapp.com/avatars/' + roll.author.id + '/' + roll.author.avatar + '.png?size=32')
+      : 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+    const displayResult = roll.total !== undefined ? roll.total : (roll.result !== undefined ? roll.result : (roll.rolls?.[0] ?? ''));
+
+    toast.innerHTML = `
+      <div class="flex items-center justify-between border-b border-white/10 pb-1 mb-1">
+        <div class="flex items-center gap-2">
+          <img src="${avatarUrl}" class="w-4 h-4 rounded-full border border-[#e21b23] object-cover" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+          <span class="text-xs font-bold text-white tracking-wide">${this.escapeHTML(authorName)}</span>
+          <span class="text-[9px] text-[#e21b23] font-mono font-bold">[ ROLAGEM NA MESA ]</span>
+        </div>
+        <span class="text-[9px] text-white/50 font-mono">${roll.timestamp || ''}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-col">
+          <span class="text-xs font-serif font-bold text-white tracking-wide">${this.escapeHTML(roll.label || 'Rolagem de Dados')}</span>
+          ${roll.formula ? `<span class="text-[10px] text-white/60 font-mono">${this.escapeHTML(roll.formula)}</span>` : ''}
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-2xl font-black ${roll.isCrit ? 'text-[#06b6d4]' : (roll.isFumble ? 'text-[#ff333d]' : 'text-[#e21b23]')}">
+            ${displayResult}
+          </span>
+        </div>
+      </div>
+      ${roll.isCrit ? '<div class="text-[9px] font-black text-[#06b6d4] tracking-widest uppercase">★ ACERTO CRÍTICO! ★</div>' : ''}
+      ${roll.isFumble ? '<div class="text-[9px] font-black text-[#ff333d] tracking-widest uppercase">☠ FALHA CRÍTICA! ☠</div>' : ''}
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translate(-50%, -15px)';
+      setTimeout(() => toast.remove(), 400);
+    }, 5000);
   }
 
   async promptGmScene() {
