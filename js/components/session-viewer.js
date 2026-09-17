@@ -17,8 +17,8 @@
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
-import { SessionSync } from '../utils/session-sync.js?v=sess_v5';
-import { CharacterSheet } from './character-sheet.js?v=release_v11';
+import { SessionSync } from '../utils/session-sync.js?v=sess_v6';
+import { CharacterSheet } from './character-sheet.js?v=release_v14';
 import { RULES_DATA } from '../data/rules.js';
 import { SKILLS_DATA } from '../data/skills-origins.js';
 
@@ -47,8 +47,18 @@ export class SessionViewer {
     this.character = getCharacterDossier();
     
     // Estado da Sessão (Sincronizado via Discord Activity ou localStorage)
-    if (window.PAROXISMO_IS_DISCORD && window.PAROXISMO_INSTANCE_ID) {
-      this.sessionId = 'discord_' + window.PAROXISMO_INSTANCE_ID;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDiscord = window.PAROXISMO_IS_DISCORD || 
+                      urlParams.has('frame_id') || 
+                      urlParams.has('channel_id') || 
+                      urlParams.has('instance_id') || 
+                      window.location.hostname.includes('discordsays.com');
+    const discordRoom = urlParams.get('channel_id') || urlParams.get('instance_id') || window.PAROXISMO_INSTANCE_ID;
+
+    if (isDiscord && discordRoom) {
+      window.PAROXISMO_IS_DISCORD = true;
+      window.PAROXISMO_INSTANCE_ID = discordRoom;
+      this.sessionId = 'discord_' + discordRoom;
     } else {
       this.sessionId = localStorage.getItem('paroxismo_active_session_id') || 'mesa_principal';
     }
@@ -91,6 +101,14 @@ export class SessionViewer {
     if (this._discordParticipantsHandler) {
       window.removeEventListener('paroxismo:discord_participants', this._discordParticipantsHandler);
       this._discordParticipantsHandler = null;
+    }
+    if (this._discordReadyHandler) {
+      window.removeEventListener('paroxismo:discord_ready', this._discordReadyHandler);
+      this._discordReadyHandler = null;
+    }
+    if (this._characterUpdatedHandler) {
+      window.removeEventListener('paroxismo:character_updated', this._characterUpdatedHandler);
+      this._characterUpdatedHandler = null;
     }
     document.body.classList.remove('vtt-view-active');
     const sheetModal = document.getElementById('vtt-sheet-modal');
@@ -180,6 +198,42 @@ export class SessionViewer {
   initSync() {
     this.sync = new SessionSync(this.sessionId, this.user, this.character, this.isGm);
     this.sync.connect();
+
+    // Escuta evento quando a autenticação do Discord estiver resolvida
+    this._discordReadyHandler = (e) => {
+      if (e.detail && e.detail.user) {
+        const u = e.detail.user;
+        this.user = {
+          id: u.id,
+          name: u.global_name || u.username || this.user.name,
+          avatar: window.PAROXISMO_USER_AVATAR || this.user.avatar,
+          role: this.isGm ? 'GM' : 'PLAYER'
+        };
+        if (this.sync) {
+          this.sync.user = this.user;
+          this.sync.registerLocalParticipant();
+          this.sync.broadcastPresence('online');
+        }
+        this.renderHeaderOnly();
+        this.renderParticipantsSummaryOnly();
+      }
+    };
+    window.addEventListener('paroxismo:discord_ready', this._discordReadyHandler);
+
+    // Escuta atualizações da Ficha do Agente disparadas em tempo real
+    this._characterUpdatedHandler = (e) => {
+      if (e.detail && e.detail.character) {
+        this.character = e.detail.character;
+        if (this.sync) {
+          this.sync.character = this.character;
+          this.sync.registerLocalParticipant();
+          this.sync.broadcastPresence('online');
+        }
+        this.renderLeftSidebarOnly();
+        this.renderParticipantsSummaryOnly();
+      }
+    };
+    window.addEventListener('paroxismo:character_updated', this._characterUpdatedHandler);
 
     // Sincroniza participantes da chamada de voz do Discord nativamente
     if (window.PAROXISMO_DISCORD_PARTICIPANTS && this.sync) {
@@ -280,6 +334,22 @@ export class SessionViewer {
       this.renderParticipantsSummaryOnly();
       if (this.activeLeftTab === 'jogadores') {
         this.renderLeftSidebarOnly();
+      }
+      // Se sou o Mestre, sincroniza o estado e combate da mesa para novos participantes
+      if (this.isGm && (Date.now() - (this._lastGmStateSync || 0) > 3500)) {
+        this._lastGmStateSync = Date.now();
+        if (this.combatActive) {
+          this.syncInitiative();
+        }
+        if (this.cinematicScene) {
+          this.sync.sendScenePresentation(this.cinematicScene, true);
+        }
+        this.sync.sendSessionState({
+          campaignName: this.sessionData.campaignName,
+          sessionNumber: this.sessionData.sessionNumber,
+          status: this.sessionData.status,
+          tacticalNotes: this.sessionData.tacticalNotes
+        });
       }
     });
 
@@ -1859,6 +1929,8 @@ export class SessionViewer {
         this.app?.setGmMode(true);
         if (this.sync) {
           this.sync.isGm = true;
+          this.sync.registerLocalParticipant();
+          this.sync.broadcastPresence('online');
           this.sync.sendSystemEvent(`${this.user.name} assumiu como Mestre da Sessão.`);
         }
         container.classList.add('hidden');
@@ -2699,7 +2771,11 @@ export class SessionViewer {
       if (ok) {
         this.isGm = false;
         this.app?.setGmMode(false);
-        if (this.sync) this.sync.isGm = false;
+        if (this.sync) {
+          this.sync.isGm = false;
+          this.sync.registerLocalParticipant();
+          this.sync.broadcastPresence('online');
+        }
         soundFX.playRuneClick();
         this.render();
       }

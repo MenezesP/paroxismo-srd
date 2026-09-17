@@ -107,7 +107,23 @@ export class CharacterSheet {
   }
 
   saveCharacter() {
+    const stats = this.calculateStats ? this.calculateStats() : null;
+    if (stats) {
+      this.character.maxPv = stats.maxPv;
+      this.character.maxPe = stats.maxPe;
+      if (typeof this.character.currentPv !== 'number' || isNaN(this.character.currentPv)) {
+        this.character.currentPv = stats.maxPv;
+      }
+      if (typeof this.character.currentPe !== 'number' || isNaN(this.character.currentPe)) {
+        this.character.currentPe = stats.maxPe;
+      }
+    }
     saveCharacterDossier(this.character);
+
+    // Notifica em tempo real a Mesa Virtual, SessionSync e todos os participantes
+    window.dispatchEvent(new CustomEvent('paroxismo:character_updated', {
+      detail: { character: this.character }
+    }));
   }
 
   flushPendingInputs() {

@@ -2,6 +2,7 @@
  * PAROXISMO — Sincronização em Tempo Real de Rolagens para Discord Activity
  * Transmite e recebe rolagens de dados instantaneamente entre todos
  * os participantes do mesmo canal de voz no Discord via WebSocket e MQTT.
+ * Alinhado 100% com a Mesa Virtual (SessionSync) usando o mesmo tópico.
  */
 
 import { soundFX } from './sound-fx.js?v=sound_v2';
@@ -9,39 +10,36 @@ import { RealtimeTransport } from './realtime-transport.js?v=rt_v1';
 
 export class ActivitySync {
   constructor(roomId, user) {
-    this.roomId = roomId || 'paroxismo_main';
+    const params = new URLSearchParams(window.location.search);
+    const resolved = roomId || params.get('channel_id') || params.get('instance_id') || window.PAROXISMO_INSTANCE_ID || 'mesa_principal';
+    this.roomId = resolved.startsWith('discord_') ? resolved : ('discord_' + resolved);
     this.user = user || { id: 'anon', name: 'Agente' };
-    this.topic = 'parox_srd_' + this.sanitizeTopic(this.roomId);
-    this.mqttTopic = 'paroxismo/rolls/' + this.sanitizeTopic(this.roomId);
+    this.topic = 'parox_mesa_' + this.sanitizeTopic(this.roomId);
+    this.mqttTopic = 'paroxismo/vtt/' + this.sanitizeTopic(this.roomId);
     this.transport = RealtimeTransport.getShared();
     this.isConnected = false;
     this.unsubscribe = null;
   }
 
   sanitizeTopic(id) {
-    let hash = 0;
-    const str = String(id || 'paroxismo_default');
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash).toString(36);
+    const clean = String(id || 'mesa_principal').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    return clean || 'mesa_principal';
   }
 
   connect() {
-    console.log('[Activity Sync] Conectado à sala de rolagens: ' + this.mqttTopic);
+    console.log('[Activity Sync] Conectado ao tópico unificado: ' + this.mqttTopic);
 
     if (this.unsubscribe) {
       this.unsubscribe();
     }
 
-    this.unsubscribe = this.transport.subscribe(this.mqttTopic, (rollPayload) => {
-      this.handleIncomingRoll(rollPayload);
+    this.unsubscribe = this.transport.subscribe(this.mqttTopic, (message) => {
+      this.handleIncoming(message);
     });
 
     this.isConnected = true;
 
-    // Escuta evento global de rolagem disparado pelo jogo
+    // Escuta evento global de rolagem disparado pelo jogo (fora da Mesa)
     window.addEventListener('paroxismo:roll_broadcast', (e) => {
       this.broadcastRoll(e.detail);
     });
@@ -49,43 +47,75 @@ export class ActivitySync {
 
   broadcastRoll(rollData) {
     if (!rollData) return;
+    // Se a Mesa Virtual (SessionViewer) estiver ativa, o SessionSync já transmite
+    if (document.body.classList.contains('vtt-view-active')) return;
 
-    const payload = {
-      ...rollData,
-      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      author: {
-        id: this.user.id,
-        name: this.user.global_name || this.user.username || this.user.name || 'Agente',
-        avatar: this.user.avatar
-      },
-      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const rollId = 'roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const totalVal = rollData.result !== undefined ? rollData.result : (rollData.total !== undefined ? rollData.total : rollData.rolledValue);
+
+    const message = {
+      type: 'roll',
+      sessionId: this.roomId,
+      senderId: this.user.id,
+      senderName: this.user.global_name || this.user.username || this.user.name || 'Agente',
+      senderAvatar: this.user.avatar || null,
+      characterName: localStorage.getItem('paroxismo_character_name') || this.user.name || 'Agente',
+      isGm: false,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      createdAt: Date.now(),
+      payload: {
+        id: rollId,
+        label: rollData.label || 'Rolagem de Dados',
+        formula: rollData.details || rollData.formula || '1d20',
+        rolls: rollData.rolls || [totalVal],
+        modifier: rollData.modifier || 0,
+        total: totalVal,
+        isCrit: Boolean(rollData.isCrit),
+        isFumble: Boolean(rollData.isFumble),
+        visibility: 'public'
+      }
     };
 
     try {
-      this.transport.publish(this.mqttTopic, payload);
+      this.transport.publish(this.mqttTopic, message);
     } catch (e) {
       console.warn('[Activity Sync] Erro no envio:', e);
     }
   }
 
-  handleIncomingRoll(payload) {
-    if (!payload) return;
+  handleIncoming(msg) {
+    if (!msg) return;
 
-    // Não replica rolagens próprias
-    if (payload.author && payload.author.id === this.user.id) {
-      return;
+    // Processa rolagens de dados
+    if (msg.type === 'roll' && msg.payload) {
+      // Não replica rolagens próprias
+      if (msg.senderId === this.user.id) return;
+
+      // Se estiver com o SessionViewer ativo (VTT), o chat da mesa já processa
+      if (document.body.classList.contains('vtt-view-active')) return;
+
+      const p = msg.payload;
+      if (p.visibility === 'gm_only') return;
+
+      const rollItem = {
+        id: p.id || ('roll_' + Date.now()),
+        label: p.label || 'Rolagem',
+        details: p.formula,
+        result: p.total !== undefined ? p.total : (p.rolls?.[0] ?? 0),
+        isCrit: Boolean(p.isCrit),
+        isFumble: Boolean(p.isFumble),
+        timestamp: msg.timestamp || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        author: {
+          id: msg.senderId,
+          name: msg.characterName || msg.senderName || 'Agente',
+          avatar: msg.senderAvatar
+        }
+      };
+
+      // Toca som de dados e mostra toast flutuante no HUD do compêndio
+      soundFX.playDiceRoll();
+      this.showRemoteRollToast(rollItem);
     }
-
-    // Se estiver com o SessionViewer ativo (VTT), ele já processa no chat da mesa
-    if (document.body.classList.contains('vtt-view-active')) {
-      return;
-    }
-
-    // Toca som de dados
-    soundFX.playDiceRoll();
-
-    // Notificação flutuante no HUD
-    this.showRemoteRollToast(payload);
   }
 
   showRemoteRollToast(roll) {

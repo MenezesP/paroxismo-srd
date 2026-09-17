@@ -6,17 +6,41 @@
 
 import { DiscordSDK } from '../vendor/discord-sdk.mjs';
 
+// Detecção e registro síncrono e imediato de ambiente Discord Activity
+(function initDiscordGlobals() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const isDiscord = params.has('frame_id') || 
+                     params.has('channel_id') || 
+                     params.has('instance_id') ||
+                     window.location.hostname.includes('discordsays.com');
+    if (isDiscord) {
+      window.PAROXISMO_IS_DISCORD = true;
+      const roomKey = params.get('channel_id') || params.get('instance_id') || 'paroxismo_main';
+      window.PAROXISMO_INSTANCE_ID = roomKey;
+      console.log('[Discord Activity] Sincronização síncrona de sala:', roomKey);
+    }
+  } catch (e) {}
+})();
+
 export class DiscordActivity {
   constructor() {
     this.params = new URLSearchParams(window.location.search);
     this.isDiscord = this.params.has('frame_id') || 
-                     window.location.hostname.includes('discordsays.com') ||
-                     window.location.search.includes('instance_id');
-    this.instanceId = this.params.get('instance_id') || 'paroxismo_main';
+                     this.params.has('channel_id') ||
+                     this.params.has('instance_id') ||
+                     window.location.hostname.includes('discordsays.com');
+    // Prioriza channel_id para garantir que todos na mesma chamada de voz fiquem na mesma sala
+    this.instanceId = this.params.get('channel_id') || this.params.get('instance_id') || 'paroxismo_main';
     this.channelId = this.params.get('channel_id') || null;
     this.sdk = null;
     this.user = null;
     this.auth = null;
+
+    if (this.isDiscord) {
+      window.PAROXISMO_IS_DISCORD = true;
+      window.PAROXISMO_INSTANCE_ID = this.instanceId;
+    }
   }
 
   async init() {

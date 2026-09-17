@@ -79,13 +79,8 @@ export class SessionSync {
   }
 
   sanitizeTopic(id) {
-    let hash = 0;
-    const str = String(id || 'paroxismo_mesa_default');
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash).toString(36);
+    const clean = String(id || 'mesa_principal').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    return clean || 'mesa_principal';
   }
 
   registerLocalParticipant() {
@@ -295,13 +290,31 @@ export class SessionSync {
 
   // Envio para a sala via WebSocket MQTT
   async broadcast(type, payload) {
+    const curPv = (this.character && typeof this.character.currentPv === 'number' && !isNaN(this.character.currentPv)) ? this.character.currentPv : 20;
+    const maxPv = (this.character && typeof this.character.maxPv === 'number' && !isNaN(this.character.maxPv)) ? this.character.maxPv : (this.character?.pv || 20);
+    const curPe = (this.character && typeof this.character.currentPe === 'number' && !isNaN(this.character.currentPe)) ? this.character.currentPe : 3;
+    const maxPe = (this.character && typeof this.character.maxPe === 'number' && !isNaN(this.character.maxPe)) ? this.character.maxPe : (this.character?.pe || 3);
+
+    const safeCharacter = {
+      name: this.character?.name || 'Agente',
+      concept: this.character?.concept || 'Sobrevivente',
+      classId: this.character?.classId || 'combate',
+      level: this.character?.level || 1,
+      currentPv: curPv,
+      maxPv: maxPv,
+      currentPe: curPe,
+      maxPe: maxPe,
+      customAvatar: this.character?.customAvatar || null,
+      attributes: this.character?.attributes || null
+    };
+
     const message = {
       type,
       sessionId: this.sessionId,
       senderId: this.user.id,
       senderName: this.user.global_name || this.user.username || this.user.name || (this.isGm ? 'Condutor' : 'Agente'),
       senderAvatar: this.user.avatar || null,
-      character: this.character,
+      character: safeCharacter,
       characterName: this.character?.name || 'Agente',
       isGm: this.isGm,
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -480,6 +493,7 @@ export class SessionSync {
     if (msg.type === 'presence' && msg.payload) {
       const { user, character, status } = msg.payload;
       if (user && user.id) {
+        const isNewParticipant = !this.participants.has(user.id);
         this.participants.set(user.id, {
           user,
           character,
@@ -489,6 +503,17 @@ export class SessionSync {
           fromDiscordCall: false
         });
         this.triggerListeners('presence', Array.from(this.participants.values()));
+
+        // Se for um novo participante que anunciou presença, responde com a presença local (sem loop)
+        if (isNewParticipant && !isMe) {
+          const now = Date.now();
+          if (now - (this._lastPresenceReplyTime || 0) > 2500) {
+            this._lastPresenceReplyTime = now;
+            setTimeout(() => {
+              if (this.isConnected) this.broadcastPresence('online');
+            }, 300);
+          }
+        }
       }
       return;
     }

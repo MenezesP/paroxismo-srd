@@ -122,9 +122,9 @@ export class ImageOptimizer {
    */
   static optimizeAvatar(file) {
     return this.compressImage(file, {
-      maxWidth: 550,
-      maxHeight: 700,
-      quality: 0.84
+      maxWidth: 380,
+      maxHeight: 480,
+      quality: 0.80
     });
   }
 
