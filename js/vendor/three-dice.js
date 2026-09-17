@@ -23,39 +23,94 @@ class DiceManagerClass {
         world.addContactMaterial(
             new CANNON.ContactMaterial(this.diceBodyMaterial, this.diceBodyMaterial, { friction: 0.2, restitution: 0.4 })
         );
+
+        // Headless World isolado para simulação ultra rápida e determinística da face de repouso
+        this.headlessWorld = new CANNON.World();
+        this.headlessWorld.gravity.set(0, -9.82 * 110, 0);
+        this.headlessWorld.broadphase = new CANNON.NaiveBroadphase();
+        this.headlessWorld.solver.iterations = 18;
+
+        this.headlessWorld.addContactMaterial(
+            new CANNON.ContactMaterial(this.floorBodyMaterial, this.diceBodyMaterial, { friction: 0.25, restitution: 0.35 })
+        );
+        this.headlessWorld.addContactMaterial(
+            new CANNON.ContactMaterial(this.barrierBodyMaterial, this.diceBodyMaterial, { friction: 0.1, restitution: 0.4 })
+        );
+        this.headlessWorld.addContactMaterial(
+            new CANNON.ContactMaterial(this.diceBodyMaterial, this.diceBodyMaterial, { friction: 0.2, restitution: 0.4 })
+        );
+
+        const floorBody = new CANNON.Body({
+            mass: 0,
+            shape: new CANNON.Plane(),
+            material: this.floorBodyMaterial
+        });
+        floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        floorBody.position.set(0, 0, 0);
+        this.headlessWorld.addBody(floorBody);
+
+        // Barreiras perimetrais padronizadas na arena de física
+        const boundX = 50;
+        const boundZ = 75;
+
+        const wallL = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: this.barrierBodyMaterial });
+        wallL.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI / 2);
+        wallL.position.set(-boundX, 0, 0);
+        this.headlessWorld.addBody(wallL);
+
+        const wallR = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: this.barrierBodyMaterial });
+        wallR.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -Math.PI / 2);
+        wallR.position.set(boundX, 0, 0);
+        this.headlessWorld.addBody(wallR);
+
+        const wallTop = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: this.barrierBodyMaterial });
+        wallTop.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), 0);
+        wallTop.position.set(0, 0, -boundZ);
+        this.headlessWorld.addBody(wallTop);
+
+        const wallBottom = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: this.barrierBodyMaterial });
+        wallBottom.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), Math.PI);
+        wallBottom.position.set(0, 0, boundZ);
+        this.headlessWorld.addBody(wallBottom);
     }
 
     /**
-     *
+     * Prepara os dados para pousarem exatamente nos valores especificados (Multiplayer Sync)
+     * Executa a simulação física antecipada no headlessWorld e mapeia a face superior para o valor alvo.
      * @param {array} diceValues
      * @param {DiceObject} [diceValues.dice]
      * @param {number} [diceValues.value]
-     *
      */
     prepareValues(diceValues) {
-        if (this.throwRunning) return;
+        if (!diceValues || diceValues.length === 0) return;
+        const simWorld = this.headlessWorld || this.world;
+        if (!simWorld) return;
 
         for (let i = 0; i < diceValues.length; i++) {
             if (diceValues[i].value < 1 || diceValues[i].dice.values < diceValues[i].value) {
-                console.warn('Valor ' + diceValues[i].value + ' fora dos limites para d' + diceValues[i].dice.values);
                 diceValues[i].value = Math.max(1, Math.min(diceValues[i].dice.values, diceValues[i].value));
             }
         }
 
-        this.throwRunning = true;
-
+        // Salva os vetores originais de arremesso e transfere os corpos temporariamente para o headlessWorld
         for (let i = 0; i < diceValues.length; i++) {
-            diceValues[i].dice.simulationRunning = true;
-            diceValues[i].vectors = diceValues[i].dice.getCurrentVectors();
+            const die = diceValues[i].dice;
+            die.simulationRunning = true;
+            diceValues[i].vectors = die.getCurrentVectors();
             diceValues[i].stableCount = 0;
+
+            if (this.headlessWorld && this.world) {
+                try { this.world.remove(die.object.body); } catch (e) {}
+                this.headlessWorld.addBody(die.object.body);
+            }
         }
 
-        // Simulação rápida iterativa headless do Cannon
-        const dt = this.world.dt || (1 / 60);
-        const maxSteps = 350;
+        // Simulação rápida iterativa headless no Cannon (fixo a 60 FPS)
+        const dt = 1 / 60;
+        const maxSteps = 320;
 
         for (let step = 0; step < maxSteps; step++) {
-            this.world.step(dt);
+            simWorld.step(dt);
             let allStable = true;
             for (let i = 0; i < diceValues.length; i++) {
                 if (diceValues[i].dice.isFinished()) {
@@ -64,22 +119,30 @@ class DiceManagerClass {
                     diceValues[i].stableCount = 0;
                 }
 
-                if (diceValues[i].stableCount < 25) {
+                if (diceValues[i].stableCount < 20) {
                     allStable = false;
                 }
             }
             if (allStable) break;
         }
 
-        // Aplica o valor desejado na face superior que parou voltada para o jogador
+        // Aplica o valor desejado na face superior que parou voltada para cima
         for (let i = 0; i < diceValues.length; i++) {
-            diceValues[i].dice.shiftUpperValue(diceValues[i].value);
-            diceValues[i].dice.resetBody();
-            diceValues[i].dice.setVectors(diceValues[i].vectors);
-            diceValues[i].dice.simulationRunning = false;
-        }
+            const die = diceValues[i].dice;
+            die.shiftUpperValue(diceValues[i].value);
 
-        this.throwRunning = false;
+            if (this.headlessWorld && this.world) {
+                try { this.headlessWorld.remove(die.object.body); } catch (e) {}
+                die.resetBody();
+                die.setVectors(diceValues[i].vectors);
+                this.world.addBody(die.object.body);
+            } else {
+                die.resetBody();
+                die.setVectors(diceValues[i].vectors);
+            }
+
+            die.simulationRunning = false;
+        }
     }
 }
 
@@ -191,10 +254,23 @@ class DiceObject {
     }
 
     setVectors(vectors) {
-        this.object.body.position = vectors.position;
-        this.object.body.quaternion = vectors.quaternion;
-        this.object.body.velocity = vectors.velocity;
-        this.object.body.angularVelocity = vectors.angularVelocity;
+        if (!vectors || !this.object || !this.object.body) return;
+        this.object.body.position.copy(vectors.position);
+        this.object.body.quaternion.copy(vectors.quaternion);
+        this.object.body.velocity.copy(vectors.velocity);
+        this.object.body.angularVelocity.copy(vectors.angularVelocity);
+        this.object.body.previousPosition.copy(vectors.position);
+        this.object.body.initPosition.copy(vectors.position);
+        this.object.body.initVelocity.copy(vectors.velocity);
+        this.object.body.initQuaternion.copy(vectors.quaternion);
+        this.object.body.initAngularVelocity.copy(vectors.angularVelocity);
+        this.object.body.interpolatedPosition.copy(vectors.position);
+        this.object.body.interpolatedQuaternion.copy(vectors.quaternion);
+        this.object.body.sleepState = 0;
+        this.object.body.wakeUp();
+
+        this.object.position.copy(vectors.position);
+        this.object.quaternion.copy(vectors.quaternion);
     }
 
     shiftUpperValue(toValue) {
@@ -476,17 +552,14 @@ class DiceObject {
     }
 
     resetBody() {
+        if (!this.object || !this.object.body) return;
         this.object.body.vlambda = new CANNON.Vec3();
-        //this.object.body.collisionResponse = true;
         this.object.body.position = new CANNON.Vec3();
         this.object.body.previousPosition = new CANNON.Vec3();
         this.object.body.initPosition = new CANNON.Vec3();
         this.object.body.velocity = new CANNON.Vec3();
         this.object.body.initVelocity = new CANNON.Vec3();
         this.object.body.force = new CANNON.Vec3();
-        //this.object.body.sleepState = 0;
-        //this.object.body.timeLastSleepy = 0;
-        //this.object.body._wakeUpAfterNarrowphase = false;
         this.object.body.torque = new CANNON.Vec3();
         this.object.body.quaternion = new CANNON.Quaternion();
         this.object.body.initQuaternion = new CANNON.Quaternion();
@@ -497,12 +570,11 @@ class DiceObject {
         this.object.body.inertia = new CANNON.Vec3();
         this.object.body.invInertia = new CANNON.Vec3();
         this.object.body.invInertiaWorld = new CANNON.Mat3();
-        //this.object.body.invMassSolve = 0;
         this.object.body.invInertiaSolve = new CANNON.Vec3();
         this.object.body.invInertiaWorldSolve = new CANNON.Mat3();
-        //this.object.body.aabb = new CANNON.AABB();
-        //this.object.body.aabbNeedsUpdate = true;
         this.object.body.wlambda = new CANNON.Vec3();
+        this.object.body.sleepState = 0;
+        this.object.body.timeLastSleepy = 0;
 
         this.object.body.updateMassProperties();
     }
@@ -529,7 +601,7 @@ export class DiceD4 extends DiceObject {
         ];
         this.faceTexts = this.d4FaceTexts[0];
         this.updateMaterialsForValue = function(diceValue) {
-            if (diceValue < 0) diceValue += 4;
+            diceValue = ((diceValue % 4) + 4) % 4;
             this.faceTexts = this.d4FaceTexts[diceValue];
             this.object.material = this.getMaterials();
         };

@@ -20,13 +20,13 @@ import { RotaryWheel } from './components/rotary-wheel.js?v=release_v9';
 import { EmotionWheel } from './components/emotion-wheel.js?v=release_v8';
 import { FusionMatrix } from './components/fusion-matrix.js?v=release_v8';
 import { GrimoireViewer } from './components/grimoire-viewer.js?v=release_v12';
-import { CharacterSheet } from './components/character-sheet.js?v=release_v14';
-import { DiceRoller } from './components/dice-roller.js?v=mobile_v5';
+import { CharacterSheet } from './components/character-sheet.js?v=sheet_sync_v1';
+import { DiceRoller } from './components/dice-roller.js?v=roller_sync_v1';
 import { ArchetypesViewer } from './components/archetypes-viewer.js?v=release_v12';
 import { ForgeViewer } from './components/forge-viewer.js?v=release_v12';
 import { DiscordActivity } from './utils/discord-activity.js?v=release_v13';
 import { ActivitySync } from './utils/activity-sync.js?v=discord_v4';
-import { SessionViewer } from './components/session-viewer.js?v=sess_v16';
+import { SessionViewer } from './components/session-viewer.js?v=sess_sync_v1';
 
 class App {
   constructor() {

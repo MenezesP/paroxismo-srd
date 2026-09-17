@@ -41,6 +41,9 @@ export class SessionSync {
     }
     SessionSync.activeInstance = this;
     SessionSync.initGlobalListener();
+    if (typeof window !== 'undefined') {
+      window.ParoxismoSessionSync = this;
+    }
 
     this.sessionId = sessionId || 'paroxismo_mesa_oficial';
     this.user = user || { id: 'anon_' + Math.random().toString(36).slice(2, 7), name: 'Agente' };
@@ -182,14 +185,22 @@ export class SessionSync {
     this._lastGlobalRollSig = sig;
     this._lastGlobalRollTime = now;
 
+    const sides = detail.sides || 20;
+    const rolls = Array.isArray(detail.rolls) ? detail.rolls : [detail.result];
+    const qty = rolls.length;
+    const vectors = detail.vectors || (window.DiceAnimator?.generateVectors ? window.DiceAnimator.generateVectors(qty, sides) : null);
+
     this.sendDiceRoll({
       label: detail.label || 'Rolagem do Dossiê',
-      formula: detail.details || '1d20',
-      rolls: [detail.result],
+      formula: detail.details || `${qty}d${sides}`,
+      sides,
+      quantity: qty,
+      rolls,
       total: detail.result,
       isCrit: Boolean(detail.isCrit),
       isFumble: Boolean(detail.isFumble),
-      visibility: 'public'
+      visibility: 'public',
+      vectors
     });
   }
 
@@ -215,6 +226,9 @@ export class SessionSync {
     this.stopHeartbeat();
     if (SessionSync.activeInstance === this) {
       SessionSync.activeInstance = null;
+    }
+    if (typeof window !== 'undefined' && window.ParoxismoSessionSync === this) {
+      window.ParoxismoSessionSync = null;
     }
     if (this.unsubscribeTransport) {
       try {
@@ -396,15 +410,19 @@ export class SessionSync {
     const visibility = rollData.visibility || 'public';
     
     let payload = {
-      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: rollData.id || ('roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
       label: rollData.label || 'Rolagem de Dados',
       formula: rollData.formula || '1d20',
+      sides: rollData.sides || 20,
+      quantity: rollData.quantity || (rollData.rolls?.length || 1),
       rolls: rollData.rolls || [],
       modifier: rollData.modifier || 0,
       total: rollData.total,
       isCrit: Boolean(rollData.isCrit),
       isFumble: Boolean(rollData.isFumble),
-      visibility // 'public', 'private_gm', 'gm_only', 'blind'
+      visibility, // 'public', 'private_gm', 'gm_only', 'blind'
+      vectors: rollData.vectors || null,
+      initiativeActorId: rollData.initiativeActorId || null
     };
 
     if (visibility === 'blind') {

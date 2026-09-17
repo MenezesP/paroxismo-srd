@@ -19,7 +19,7 @@ import {
   DiceD8, 
   DiceD6, 
   DiceD4 
-} from '../vendor/three-dice.js?v=phys_v12';
+} from '../vendor/three-dice.js?v=phys_sync_v1';
 
 export class DiceAnimator {
   static initialized = false;
@@ -149,6 +149,7 @@ export class DiceAnimator {
 
   /**
    * Constrói barreiras perimetrais na física para rebater os dados
+   * Dimensões padronizadas para garantir simulação física 100% idêntica em qualquer resolução
    */
   static buildBoundaryWalls() {
     const CANNON = window.CANNON;
@@ -162,14 +163,9 @@ export class DiceAnimator {
       this.walls = [];
     }
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isMobile = width < 768;
-    const aspect = width / height;
-
-    // No celular, as paredes laterais devem ser bem mais próximas do centro para o dado nunca sair da tela
-    const boundX = isMobile ? Math.max(34, Math.round(50 * Math.min(1, aspect / 0.5))) : 140;
-    const boundZ = isMobile ? 120 : 95;
+    // Arena perimetral fixa e determinística para compatibilidade 1:1 mobile, desktop e multiplayer
+    const boundX = 50;
+    const boundZ = 75;
 
     // Parede Esquerda
     const wallL = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: DiceManager.barrierBodyMaterial });
@@ -220,12 +216,61 @@ export class DiceAnimator {
   }
 
   /**
-   * Arremessa um dado 3D na mesa virtual com física newtoniana real e aguarda seu repouso físico
+   * Gera vetores de arremesso determinísticos sincronizáveis via rede
+   * Garante que múltiplos jogadores vejam a mesma trajetória física 3D do dado
+   */
+  static generateVectors(count = 1, sides = 20) {
+    const list = [];
+    const qty = Math.max(1, Math.min(10, parseInt(count, 10) || 1));
+
+    for (let i = 0; i < qty; i++) {
+      const spawnSide = (i % 2 === 0) ? 1 : -1;
+      const spreadOffsetX = (i - (qty - 1) / 2) * 14;
+      const spreadOffsetZ = (Math.random() - 0.5) * 16;
+      const spreadOffsetY = i * 14;
+
+      const baseStartX = spawnSide * (24 + Math.random() * 8);
+      const startX = parseFloat((baseStartX + spreadOffsetX).toFixed(2));
+      const startY = parseFloat((140 + spreadOffsetY + Math.random() * 15).toFixed(2));
+      const startZ = parseFloat(((Math.random() > 0.5 ? 20 : -20) + spreadOffsetZ).toFixed(2));
+
+      const rotX = parseFloat((Math.random() * Math.PI * 2).toFixed(3));
+      const rotY = parseFloat((Math.random() * Math.PI * 2).toFixed(3));
+      const rotZ = parseFloat((Math.random() * Math.PI * 2).toFixed(3));
+
+      const forceMult = 1.35;
+      const spreadVelX = (Math.random() - 0.5) * 15;
+      const spreadVelZ = (Math.random() - 0.5) * 15;
+
+      const velX = parseFloat((-startX * forceMult + spreadVelX).toFixed(2));
+      const velY = parseFloat((-95 - Math.random() * 25).toFixed(2));
+      const velZ = parseFloat((-startZ * forceMult + spreadVelZ).toFixed(2));
+
+      const angX = parseFloat(((Math.random() * 30 + 20) * (Math.random() > 0.5 ? 1 : -1)).toFixed(2));
+      const angY = parseFloat(((Math.random() * 30 + 20) * (Math.random() > 0.5 ? 1 : -1)).toFixed(2));
+      const angZ = parseFloat(((Math.random() * 30 + 20) * (Math.random() > 0.5 ? 1 : -1)).toFixed(2));
+
+      list.push({
+        startX, startY, startZ,
+        rotX, rotY, rotZ,
+        velX, velY, velZ,
+        angX, angY, angZ
+      });
+    }
+    return list;
+  }
+
+  /**
+   * Arremessa dados 3D na mesa virtual com física newtoniana real e aguarda seu repouso físico
+   * Suporta sincronização multiplayer em tempo real com valores e vetores predeterminados
    */
   static roll({
     sides = 20,
     quantity = 1,
-    label = "TESTE"
+    label = "TESTE",
+    targetValues = null,
+    vectors = null,
+    author = null
   }) {
     return new Promise((resolve) => {
       this.initEngine();
@@ -236,30 +281,65 @@ export class DiceAnimator {
       const d = parseInt(sides, 10) || 20;
       const count = Math.max(1, Math.min(10, parseInt(quantity, 10) || 1));
 
+      // 1. Limpa imediatamente dados já finalizados em repouso para deixar a mesa limpa
+      for (let i = this.activeDice.length - 1; i >= 0; i--) {
+        if (this.activeDice[i].isFinished) {
+          this.cleanupDie(this.activeDice[i]);
+        }
+      }
+
+      // 2. Normaliza valores alvo (Multiplayer Sync: todos veem o mesmo dado parar no mesmo valor)
+      let actualTargetValues = targetValues;
+      if (!Array.isArray(actualTargetValues) || actualTargetValues.length < count) {
+        actualTargetValues = [];
+        for (let i = 0; i < count; i++) {
+          actualTargetValues.push(Math.floor(Math.random() * d) + 1);
+        }
+      }
+
+      // 3. Normaliza vetores de arremesso físico
+      let actualVectors = vectors;
+      if (!Array.isArray(actualVectors) || actualVectors.length < count) {
+        actualVectors = this.generateVectors(count, d);
+      }
+
       if (!THREE || !CANNON || !this.world) {
         // Fallback defensivo caso WebGL não esteja disponível
-        const fallbackRolls = [];
-        for (let i = 0; i < count; i++) {
-          fallbackRolls.push(Math.floor(Math.random() * d) + 1);
-        }
-        const fallbackSum = fallbackRolls.reduce((a, b) => a + b, 0);
+        const fallbackSum = actualTargetValues.reduce((a, b) => a + b, 0);
         resolve({
-          rolledValue: fallbackRolls[0],
-          rolls: fallbackRolls,
+          rolledValue: actualTargetValues[0],
+          rolls: actualTargetValues,
           sum: fallbackSum,
-          isCrit: d === 20 && fallbackRolls.includes(20),
-          isFumble: d === 20 && fallbackRolls.every(r => r === 1),
+          isCrit: d === 20 && actualTargetValues.includes(20),
+          isFumble: d === 20 && actualTargetValues.every(r => r === 1),
           sides: d,
           label
         });
         return;
       }
 
-      // Banner flutuante do teste
+      // 4. Banner flutuante do teste com identificação do autor
+      document.getElementById('dice-3d-floating-label')?.remove();
       const labelBadge = document.createElement('div');
       labelBadge.id = 'dice-3d-floating-label';
-      labelBadge.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2 bg-[#07090e]/95 border-2 border-[#e21b23] text-white shadow-[0_0_20px_rgba(226,27,35,0.4)] text-xs font-mono font-black uppercase tracking-widest animate-fadeIn select-none shadow-2xl flex items-center';
-      labelBadge.innerHTML = `<span>[ ${label.toUpperCase()} ]</span>`;
+      labelBadge.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2.5 bg-[#07090e]/95 border-2 border-[#e21b23] text-white shadow-[0_0_30px_rgba(226,27,35,0.45)] text-xs font-mono font-black uppercase tracking-widest animate-fadeIn select-none shadow-2xl flex items-center gap-2.5 pointer-events-none backdrop-blur-md';
+
+      const authorName = author?.characterName || author?.name;
+      const avatarUrl = author?.avatar
+        ? (author.avatar.startsWith('http') ? author.avatar : `https://cdn.discordapp.com/avatars/${author.id}/${author.avatar}.png?size=32`)
+        : null;
+
+      let badgeHTML = '';
+      if (authorName) {
+        badgeHTML += `
+          <div class="flex items-center gap-1.5 border-r border-white/20 pr-2.5 text-[#e21b23]">
+            ${avatarUrl ? `<img src="${avatarUrl}" class="w-4 h-4 rounded-full border border-[#e21b23] object-cover" onerror="this.remove()" />` : ''}
+            <span>${authorName.toUpperCase()}</span>
+          </div>
+        `;
+      }
+      badgeHTML += `<span>[ ${label.toUpperCase()} ]</span>`;
+      labelBadge.innerHTML = badgeHTML;
       document.body.appendChild(labelBadge);
 
       const batch = {
@@ -275,7 +355,7 @@ export class DiceAnimator {
 
       const isMobile = window.innerWidth < 768;
 
-      // Cores Litúrgicas do PAROXISMO (Tamanho proporcional em telas mobile)
+      // Cores Litúrgicas do PAROXISMO
       const baseSize = d === 20 ? 32 : d === 6 ? 28 : d === 8 ? 30 : d === 12 ? 30 : 28;
       const diceOptions = {
         size: isMobile ? Math.round(baseSize * 0.78) : baseSize,
@@ -285,6 +365,9 @@ export class DiceAnimator {
 
       // Som tátil de arremesso inicial
       soundFX.playDiceRoll();
+
+      const createdInstances = [];
+      const newActiveDice = [];
 
       for (let i = 0; i < count; i++) {
         let dieInstance;
@@ -313,46 +396,15 @@ export class DiceAnimator {
         const dieMesh = dieInstance.getObject();
         this.scene.add(dieMesh);
 
-        // Espalhamento de posições para múltiplos dados não interpenetrarem no spawn
-        const spawnSide = (i % 2 === 0) ? 1 : -1;
-        const spreadOffsetX = (i - (count - 1) / 2) * (isMobile ? 20 : 34);
-        const spreadOffsetZ = (Math.random() - 0.5) * (isMobile ? 20 : 30);
-        const spreadOffsetY = i * 18;
-
-        const baseStartX = isMobile 
-          ? spawnSide * (12 + Math.random() * 16)
-          : spawnSide * (70 + Math.random() * 40);
-        const startX = baseStartX + spreadOffsetX;
-        const startY = (isMobile ? 150 : 130) + spreadOffsetY + Math.random() * 20;
-        const startZ = (isMobile ? 15 : 30) + spreadOffsetZ;
-
-        dieMesh.position.set(startX, startY, startZ);
-        dieMesh.quaternion.set(
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2,
-          Math.random() * Math.PI * 2,
-          1
-        ).normalize();
+        const v = actualVectors[i] || actualVectors[0];
+        dieMesh.position.set(v.startX, v.startY, v.startZ);
+        dieMesh.quaternion.setFromEuler(new THREE.Euler(v.rotX, v.rotY, v.rotZ));
 
         dieInstance.updateBodyFromMesh();
 
-        // Forças físicas de arremesso com dispersão direcional
-        const forceMult = isMobile ? 1.15 : 1.5;
-        const spreadVelX = (Math.random() - 0.5) * 25;
-        const spreadVelZ = (Math.random() - 0.5) * 25;
-        dieMesh.body.velocity.set(
-          -startX * (forceMult + Math.random() * 0.25) + spreadVelX,
-          -90 - Math.random() * 30,
-          -startZ * (forceMult + Math.random() * 0.25) + spreadVelZ
-        );
+        dieMesh.body.velocity.set(v.velX, v.velY, v.velZ);
+        dieMesh.body.angularVelocity.set(v.angX, v.angY, v.angZ);
 
-        dieMesh.body.angularVelocity.set(
-          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
-          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1),
-          (Math.random() * 35 + 20) * (Math.random() > 0.5 ? 1 : -1)
-        );
-
-        // Monitoramento de colisões para som de quique
         let lastSoundTime = 0;
         const onCollide = (e) => {
           const now = performance.now();
@@ -362,10 +414,8 @@ export class DiceAnimator {
             soundFX.playDiceRoll();
           }
         };
-
         dieMesh.body.addEventListener('collide', onCollide);
 
-        // Estado do Dado Ativo
         const dieData = {
           dieInstance,
           dieMesh,
@@ -380,8 +430,20 @@ export class DiceAnimator {
           label
         };
 
-        this.activeDice.push(dieData);
+        createdInstances.push(dieInstance);
+        newActiveDice.push(dieData);
       }
+
+      // 5. Aplica a preparação determinística no Three.js + Cannon.js
+      // Isso assegura que a face superior no repouso físico seja IDÊNTICA em todas as telas conectadas!
+      if (actualTargetValues && actualTargetValues.length >= count) {
+        DiceManager.prepareValues(createdInstances.map((inst, idx) => ({
+          dice: inst,
+          value: actualTargetValues[idx]
+        })));
+      }
+
+      newActiveDice.forEach(dData => this.activeDice.push(dData));
 
       // Inicia loop de animação caso não esteja ativo
       if (!this.isLoopRunning) {

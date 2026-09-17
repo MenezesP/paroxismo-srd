@@ -13,7 +13,7 @@ import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
 import { SheetImageGenerator } from '../utils/sheet-image-generator.js?v=aaa_collector_v1';
 import { ICONS8 } from '../utils/icons8.js?v=icons8_v1';
 import { ImageOptimizer } from '../utils/image-optimizer.js?v=img_v1';
-import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
+import { DiceAnimator } from '../utils/dice-animator.js?v=phys_sync_v1';
 
 import { showLiturgicalConfirm, showLiturgicalToast } from '../utils/liturgical-modal.js?v=modal_v1';
 import { getCharacterDossier, saveCharacterDossier, getDefaultCharacter } from '../utils/character-storage.js?v=char_v2';
@@ -1426,6 +1426,100 @@ export class CharacterSheet {
     let isFumble = false;
     let animSides = sides || 20;
 
+    // Se estiver conectado em uma Mesa Virtual (Multiplayer Sync)
+    if (window.ParoxismoSessionSync && window.ParoxismoSessionSync.isConnected) {
+      if (formula && formula.includes('d')) {
+        let cleanFormula = formula
+          .replace(/\bFOR\b/gi, this.character.attributes.for || 0)
+          .replace(/\bAGI\b/gi, this.character.attributes.agi || 0)
+          .replace(/\bINT\b/gi, this.character.attributes.int || 0)
+          .replace(/\bPRE\b/gi, this.character.attributes.pre || 0)
+          .replace(/\bVIG\b/gi, this.character.attributes.vig || 0);
+
+        const regex = /(\d+)d(\d+)/g;
+        let dSides = 20;
+        const firstMatch = cleanFormula.match(/(\d+)d(\d+)/);
+        if (firstMatch) {
+          dSides = parseInt(firstMatch[2], 10);
+        }
+        const targetRoll = Math.floor(Math.random() * dSides) + 1;
+        const vectors = DiceAnimator.generateVectors(1, dSides);
+
+        let evaluatedExpr = cleanFormula;
+        let rollBreakdowns = [];
+        let replacedFirst = false;
+        let match;
+
+        while ((match = regex.exec(cleanFormula)) !== null) {
+          const count = parseInt(match[1], 10);
+          const sidesMatched = parseInt(match[2], 10);
+          let diceRolls = [];
+          for (let i = 0; i < count; i++) {
+            if (!replacedFirst) {
+              diceRolls.push(targetRoll);
+              replacedFirst = true;
+            } else {
+              diceRolls.push(Math.floor(Math.random() * sidesMatched) + 1);
+            }
+          }
+          const diceSum = diceRolls.reduce((a, b) => a + b, 0);
+          rollBreakdowns.push(`${match[0]} [${diceRolls.join(', ')}]`);
+          evaluatedExpr = evaluatedExpr.replace(match[0], `${diceSum}`);
+        }
+
+        let result = 0;
+        try {
+          const sanitized = evaluatedExpr.replace(/[^0-9+\-*]/g, '');
+          result = Function(`'use strict'; return (${sanitized})`)();
+        } catch (e) {
+          result = 0;
+        }
+
+        const details = `${formula} ➔ ${rollBreakdowns.join(' + ')}`;
+
+        window.ParoxismoSessionSync.sendDiceRoll({
+          label,
+          formula: details,
+          sides: dSides,
+          quantity: 1,
+          rolls: [targetRoll],
+          total: result,
+          isCrit: Boolean(dSides === 20 && targetRoll === 20),
+          isFumble: Boolean(dSides === 20 && targetRoll === 1),
+          visibility: 'public',
+          vectors
+        });
+
+        this.showRollToast(label, result, details, dSides === 20 && targetRoll === 20, dSides === 20 && targetRoll === 1, false);
+        return;
+      } else {
+        const targetRoll = Math.floor(Math.random() * animSides) + 1;
+        const result = targetRoll + bonus;
+        const sign = bonus >= 0 ? `+${bonus}` : `${bonus}`;
+        const details = `1d${animSides} (${targetRoll}) ${sign}`;
+        const isCrit = (animSides === 20 && targetRoll === 20);
+        const isFumble = (animSides === 20 && targetRoll === 1);
+        const vectors = DiceAnimator.generateVectors(1, animSides);
+
+        window.ParoxismoSessionSync.sendDiceRoll({
+          label,
+          formula: `1d${animSides}${sign}`,
+          sides: animSides,
+          quantity: 1,
+          rolls: [targetRoll],
+          modifier: bonus,
+          total: result,
+          isCrit,
+          isFumble,
+          visibility: 'public',
+          vectors
+        });
+
+        this.showRollToast(label, result, details, isCrit, isFumble, false);
+        return;
+      }
+    }
+
     if (formula) {
       let cleanFormula = formula
         .replace(/\bFOR\b/gi, this.character.attributes.for || 0)
@@ -1504,7 +1598,7 @@ export class CharacterSheet {
     });
   }
 
-  showRollToast(label, result, details, isCrit = false, isFumble = false) {
+  showRollToast(label, result, details, isCrit = false, isFumble = false, broadcast = true) {
     document.getElementById('dossier-roll-toast')?.remove();
 
     const toast = document.createElement('div');
@@ -1529,18 +1623,20 @@ export class CharacterSheet {
     toast.querySelector('#close-toast-btn')?.addEventListener('click', () => toast.remove());
     setTimeout(() => toast.remove(), 6000);
 
-    // Dispara broadcast de rolagem para sincronização no Discord Activity
-    try {
-      window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
-        detail: {
-          label,
-          result,
-          details,
-          isCrit,
-          isFumble
-        }
-      }));
-    } catch (e) {}
+    // Dispara broadcast de rolagem para sincronização no Discord Activity apenas se solicitado
+    if (broadcast) {
+      try {
+        window.dispatchEvent(new CustomEvent('paroxismo:roll_broadcast', {
+          detail: {
+            label,
+            result,
+            details,
+            isCrit,
+            isFumble
+          }
+        }));
+      } catch (e) {}
+    }
   }
 
   async openExportImageModal() {

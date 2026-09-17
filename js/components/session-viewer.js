@@ -15,10 +15,10 @@
  */
 
 import { soundFX } from '../utils/sound-fx.js?v=sound_v2';
-import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v13';
+import { DiceAnimator } from '../utils/dice-animator.js?v=phys_sync_v1';
 import { getCharacterDossier, saveCharacterDossier } from '../utils/character-storage.js?v=char_v2';
-import { SessionSync } from '../utils/session-sync.js?v=sess_v6';
-import { CharacterSheet } from './character-sheet.js?v=release_v14';
+import { SessionSync } from '../utils/session-sync.js?v=sess_sync_v1';
+import { CharacterSheet } from './character-sheet.js?v=sheet_sync_v1';
 import { RULES_DATA } from '../data/rules.js';
 import { SKILLS_DATA } from '../data/skills-origins.js';
 
@@ -259,22 +259,9 @@ export class SessionViewer {
       this.scrollChatToBottom();
     });
 
-    // Escuta novas rolagens (com proteção contra duplicatas)
+    // Escuta novas rolagens em tempo real (Coordenação 3D Síncrona: "O Mesmo Dado")
     this.sync.on('roll', (rollMsg) => {
-      if (rollMsg?.id && this.chatMessages.some(m => m.id === rollMsg.id)) return;
-      this.chatMessages.push({
-        id: rollMsg.id,
-        type: 'roll',
-        ...rollMsg
-      });
-      this.saveMessages();
-      this.renderChatFeedOnly();
-      this.scrollChatToBottom();
-
-      // Alerta visual imediato na Mesa quando outro participante rola dados
-      if (rollMsg.author?.id && rollMsg.author.id !== this.user?.id) {
-        this.showRemoteRollAlert(rollMsg);
-      }
+      this.handleIncomingRoll(rollMsg);
     });
 
     // Escuta atualizações completas de iniciativa
@@ -2161,26 +2148,15 @@ export class SessionViewer {
 
     if (!actor || actor.rolled) return;
 
-    soundFX.playDiceRoll();
-
-    DiceAnimator.roll({
+    const bonus = actor.bonus || 0;
+    this.initiateDiceRoll({
       sides: 20,
-      label: 'Iniciativa: ' + actor.name
-    }).then(({ rolledValue }) => {
-      const bonus = actor.bonus || 0;
-      const total = rolledValue + bonus;
-      actor.initiative = total;
-      actor.rolled = true;
-
-      localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
-
-      if (this.sync) {
-        this.sync.sendChatMessage(`🎲 [INICIATIVA] ${actor.name} rolou 1d20 (${rolledValue}) ${bonus >= 0 ? '+' + bonus : bonus} = TOTAL: ${total}!`, 'normal', 'public');
-        this.sync.sendInitiativeRoll(actor.id, total, rolledValue, bonus, actor.name);
-      }
-
-      this.renderInitiativeListOnly();
-      this.renderCenterCombatSummary();
+      quantity: 1,
+      modifier: bonus,
+      label: 'Iniciativa: ' + actor.name,
+      formula: `1d20${bonus ? (bonus >= 0 ? '+' + bonus : bonus) : ''}`,
+      visibility: 'public',
+      initiativeActorId: actor.id
     });
   }
 
@@ -2191,22 +2167,16 @@ export class SessionViewer {
     const actor = this.initiativeList.find(a => a.id === actorId);
     if (!actor || actor.rolled) return;
 
-    soundFX.playDiceRoll();
-
-    const roll = Math.floor(Math.random() * 20) + 1;
     const bonus = actor.bonus || 0;
-    const total = roll + bonus;
-
-    actor.initiative = total;
-    actor.rolled = true;
-
-    localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
-
-    if (this.sync) {
-      this.sync.sendChatMessage(`🎲 [Mestre] Rolou Iniciativa para ${actor.name}: 1d20 (${roll}) ${bonus >= 0 ? '+' + bonus : bonus} = TOTAL: ${total}!`, 'normal', 'public');
-    }
-
-    this.syncInitiative();
+    this.initiateDiceRoll({
+      sides: 20,
+      quantity: 1,
+      modifier: bonus,
+      label: 'Iniciativa: ' + actor.name,
+      formula: `1d20${bonus ? (bonus >= 0 ? '+' + bonus : bonus) : ''}`,
+      visibility: 'public',
+      initiativeActorId: actor.id
+    });
   }
 
   // ============================================================
@@ -2367,79 +2337,163 @@ export class SessionViewer {
   }
 
   // ============================================================
+  // ============================================================
+  // COORDENAÇÃO DE ROLAGENS 3D MULTIPLAYER ("O MESMO DADO")
+  // ============================================================
+  initiateDiceRoll({
+    sides = 20,
+    quantity = 1,
+    modifier = 0,
+    label = "Rolagem de Dados",
+    formula = null,
+    visibility = "public",
+    initiativeActorId = null
+  }) {
+    const d = parseInt(sides, 10) || 20;
+    const count = Math.max(1, Math.min(10, parseInt(quantity, 10) || 1));
+    const mod = parseInt(modifier, 10) || 0;
+
+    // 1. Pré-sorteia os resultados dos dados para que TODOS os participantes compartilhem os mesmos valores
+    const targetValues = [];
+    for (let i = 0; i < count; i++) {
+      targetValues.push(Math.floor(Math.random() * d) + 1);
+    }
+    const sumTargets = targetValues.reduce((a, b) => a + b, 0);
+    const total = sumTargets + mod;
+    const isCrit = (d === 20 && targetValues.includes(20));
+    const isFumble = (d === 20 && targetValues.every(r => r === 1));
+
+    // 2. Gera os vetores físicos idênticos para simulação 3D coordenada em todos os clientes
+    const vectors = DiceAnimator.generateVectors(count, d);
+    const rollFormula = formula || `${count}d${d}${mod ? (mod >= 0 ? '+' + mod : mod) : ''}`;
+
+    const rollPayload = {
+      id: 'roll_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      label,
+      formula: rollFormula,
+      sides: d,
+      quantity: count,
+      rolls: targetValues,
+      modifier: mod,
+      total,
+      isCrit,
+      isFumble,
+      visibility,
+      vectors,
+      initiativeActorId
+    };
+
+    if (this.sync) {
+      this.sync.sendDiceRoll(rollPayload);
+    } else {
+      this.handleIncomingRoll(rollPayload);
+    }
+
+    return rollPayload;
+  }
+
+  handleIncomingRoll(rollMsg) {
+    if (!rollMsg || !rollMsg.id) return;
+    if (!this._processedRollIds) this._processedRollIds = new Set();
+    if (this._processedRollIds.has(rollMsg.id)) return;
+    this._processedRollIds.add(rollMsg.id);
+    if (this._processedRollIds.size > 200) {
+      const first = this._processedRollIds.values().next().value;
+      this._processedRollIds.delete(first);
+    }
+
+    // Checagem de visibilidade privada
+    const isMe = rollMsg.author?.id === this.user?.id;
+    if (rollMsg.visibility === 'gm_only' && !this.isGm) return;
+    if (rollMsg.visibility === 'private_gm' && !this.isGm && !isMe) return;
+
+    const authorName = rollMsg.author?.characterName || rollMsg.author?.name || (isMe ? (this.character?.name || 'Meu Agente') : 'Agente');
+
+    // DISPARA A ANIMAÇÃO FÍSICA 3D SIMULTANEAMENTE PARA TODOS OS JOGADORES!
+    // Three.js + Cannon.js usam targetValues e vectors para que TODOS vejam O MESMO DADO rolando e parando!
+    DiceAnimator.roll({
+      sides: rollMsg.sides || 20,
+      quantity: rollMsg.quantity || (rollMsg.rolls?.length || 1),
+      label: `${authorName}: ${rollMsg.label}`,
+      targetValues: rollMsg.rolls,
+      vectors: rollMsg.vectors,
+      author: rollMsg.author
+    }).then(() => {
+      // Quando o dado físico 3D atinge repouso absoluto na tela de todos:
+      // 1. Registra o card no chat da mesa
+      if (!this.chatMessages.some(m => m.id === rollMsg.id)) {
+        this.chatMessages.push({
+          id: rollMsg.id,
+          type: 'roll',
+          ...rollMsg
+        });
+        this.saveMessages();
+        this.renderChatFeedOnly();
+        this.scrollChatToBottom();
+      }
+
+      // 2. Se for rolagem de iniciativa vinculada a um ator
+      if (rollMsg.initiativeActorId) {
+        const actor = this.initiativeList.find(a => a.id === rollMsg.initiativeActorId);
+        if (actor) {
+          actor.initiative = rollMsg.total;
+          actor.rolled = true;
+          localStorage.setItem('paroxismo_initiative_list_v1', JSON.stringify(this.initiativeList));
+          this.renderInitiativeListOnly();
+          this.renderCenterCombatSummary();
+        }
+      }
+
+      // 3. Efeito visual no card de retrato do participante
+      if (rollMsg.author?.id) {
+        const card = this.container.querySelector(`.stream-portrait-card[data-user-id="${rollMsg.author.id}"]`);
+        if (card) {
+          card.classList.add('stream-portrait-active-roll');
+          setTimeout(() => card.classList.remove('stream-portrait-active-roll'), 4000);
+        }
+      }
+    });
+  }
+
+  // ============================================================
   // EXECUÇÃO DE ROLAGENS COM MOTOR 3D (THREE.JS + CANNON.JS)
   // ============================================================
   executeDockRoll() {
     if (this._isRollingDock) return;
     this._isRollingDock = true;
 
-    const sides = this.selectedDiceType;
+    const sides = this.selectedDiceType === 100 ? 10 : this.selectedDiceType;
     const qty = this.diceQuantity;
     const mod = this.diceModifier;
     const vis = this.diceRollVisibility;
-    const label = `Rolagem ${qty}d${sides}`;
+    const label = `Rolagem ${qty}d${this.selectedDiceType}`;
 
-    soundFX.playDiceRoll();
-
-    DiceAnimator.roll({
-      sides: sides === 100 ? 10 : sides,
+    this.initiateDiceRoll({
+      sides,
       quantity: qty,
-      label: label
-    }).then(({ rolledValue, rolls, sum, isCrit, isFumble }) => {
-      const actualRolls = (Array.isArray(rolls) && rolls.length > 0) ? rolls : [rolledValue];
-      const sumRolls = (typeof sum === 'number') ? sum : actualRolls.reduce((a, b) => a + b, 0);
-      const total = sumRolls + mod;
-
-      const rollPayload = {
-        label,
-        formula: `${qty}d${sides}${mod ? (mod >= 0 ? '+' + mod : mod) : ''}`,
-        rolls: actualRolls,
-        modifier: mod,
-        total,
-        isCrit: Boolean(isCrit || (sides === 20 && actualRolls.includes(20))),
-        isFumble: Boolean(isFumble || (sides === 20 && actualRolls.every(r => r === 1))),
-        visibility: vis
-      };
-
-      if (this.sync) {
-        this.sync.sendDiceRoll(rollPayload);
-      }
-    }).finally(() => {
-      setTimeout(() => {
-        this._isRollingDock = false;
-      }, 600);
+      modifier: mod,
+      label,
+      formula: `${qty}d${this.selectedDiceType}${mod ? (mod >= 0 ? '+' + mod : mod) : ''}`,
+      visibility: vis
     });
+
+    setTimeout(() => {
+      this._isRollingDock = false;
+    }, 800);
   }
 
   executeQuickSkillRoll(skillName, bonus = 0) {
-    soundFX.playDiceRoll();
-
-    DiceAnimator.roll({
+    this.initiateDiceRoll({
       sides: 20,
-      label: `Teste de ${skillName}`
-    }).then(({ rolledValue, isCrit, isFumble }) => {
-      const total = rolledValue + bonus;
-      const rollPayload = {
-        label: `Teste de ${skillName}`,
-        formula: `1d20${bonus ? (bonus >= 0 ? '+' + bonus : bonus) : ''}`,
-        rolls: [rolledValue],
-        modifier: bonus,
-        total,
-        isCrit: Boolean(isCrit || rolledValue === 20),
-        isFumble: Boolean(isFumble || rolledValue === 1),
-        visibility: 'public'
-      };
-
-      if (this.sync) {
-        this.sync.sendDiceRoll(rollPayload);
-      }
+      quantity: 1,
+      modifier: bonus,
+      label: `Teste de ${skillName}`,
+      formula: `1d20${bonus ? (bonus >= 0 ? '+' + bonus : bonus) : ''}`,
+      visibility: 'public'
     });
   }
 
   executeWeaponDamageRoll(weaponName, formula = '1d8') {
-    soundFX.playDiceRoll();
-
-    // Interpreta fórmula ex: "2d6+2" ou "1d8"
     let qty = 1;
     let sides = 8;
     let mod = 0;
@@ -2450,28 +2504,13 @@ export class SessionViewer {
       if (match[3]) mod = parseInt(match[3], 10) || 0;
     }
 
-    DiceAnimator.roll({
-      sides: sides,
+    this.initiateDiceRoll({
+      sides,
       quantity: qty,
-      label: `Dano (${weaponName})`
-    }).then(({ rolledValue, rolls, sum }) => {
-      const actualRolls = (Array.isArray(rolls) && rolls.length > 0) ? rolls : [rolledValue];
-      const sumRolls = (typeof sum === 'number') ? sum : actualRolls.reduce((a, b) => a + b, 0);
-      const total = sumRolls + mod;
-      const rollPayload = {
-        label: `Dano (${weaponName})`,
-        formula: formula,
-        rolls: actualRolls,
-        modifier: mod,
-        total,
-        isCrit: false,
-        isFumble: false,
-        visibility: 'public'
-      };
-
-      if (this.sync) {
-        this.sync.sendDiceRoll(rollPayload);
-      }
+      modifier: mod,
+      label: `Dano (${weaponName})`,
+      formula,
+      visibility: 'public'
     });
   }
 
@@ -2505,26 +2544,13 @@ export class SessionViewer {
   }
 
   executeGmSecretRoll() {
-    soundFX.playDiceRoll();
-
-    DiceAnimator.roll({
+    this.initiateDiceRoll({
       sides: 20,
-      label: 'Rolagem Secreta (Mestre)'
-    }).then(({ rolledValue }) => {
-      const rollPayload = {
-        label: 'Rolagem Secreta do Mestre',
-        formula: '1d20',
-        rolls: [rolledValue],
-        modifier: 0,
-        total: rolledValue,
-        isCrit: rolledValue === 20,
-        isFumble: rolledValue === 1,
-        visibility: 'blind'
-      };
-
-      if (this.sync) {
-        this.sync.sendDiceRoll(rollPayload);
-      }
+      quantity: 1,
+      modifier: 0,
+      label: 'Rolagem Secreta do Mestre',
+      formula: '1d20',
+      visibility: 'blind'
     });
   }
 

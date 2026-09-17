@@ -5,7 +5,7 @@
  */
 
 import { RULES_DATA } from '../data/rules.js';
-import { DiceAnimator } from '../utils/dice-animator.js?v=phys_v12';
+import { DiceAnimator } from '../utils/dice-animator.js?v=phys_sync_v1';
 
 export class DiceRoller {
   constructor(containerId) {
@@ -20,6 +20,30 @@ export class DiceRoller {
   }
 
   roll(sides, modifier = 0, label = "Rolagem") {
+    if (window.ParoxismoSessionSync && window.ParoxismoSessionSync.isConnected) {
+      const d = parseInt(sides, 10) || 20;
+      const targetRoll = Math.floor(Math.random() * d) + 1;
+      const total = targetRoll + modifier;
+      const isCrit = (d === 20 && targetRoll === 20);
+      const isFumble = (d === 20 && targetRoll === 1);
+      const vectors = DiceAnimator.generateVectors(1, d);
+
+      window.ParoxismoSessionSync.sendDiceRoll({
+        label: label || `d${d}`,
+        formula: `1d${d}${modifier ? (modifier >= 0 ? '+' + modifier : modifier) : ''}`,
+        sides: d,
+        quantity: 1,
+        rolls: [targetRoll],
+        modifier,
+        total,
+        isCrit,
+        isFumble,
+        visibility: 'public',
+        vectors
+      });
+      return;
+    }
+
     DiceAnimator.roll({
       sides,
       label: label || `d${sides}`
